@@ -7,16 +7,15 @@ export function HelpDialog({ ref }: { ref: Ref<HTMLDialogElement> }) {
       <form method="dialog">
         <h2 id="help-title">Reading the Atlas</h2>
         <ul>
-          <li><b>Move</b> — drag the parchment, or use the arrow keys when the map is focused.</li>
-          <li><b>Zoom</b> — scroll, pinch, the + / − buttons, or the + and − keys.</li>
-          <li><b>Rooms</b> — click or tap a room to read about it; Tab through rooms and press Enter.</li>
-          <li><b>Find</b> — type in “Seek a place…” and choose a result.</li>
-          <li><b>Travel</b> — select a room, then “Navigate here”. Footprints walk the route from where you are.</li>
-          <li><b>Secrets</b> — the key button or Secrets mode reveals hidden passages and chambers.</li>
-          <li><b>Modes</b> — Explore, Secrets, Tracking (footprints prominent) and Clean (architecture only).</li>
+          <li><b>Move</b> — drag the parchment; scroll or pinch to zoom; right-drag or two-finger twist to turn it.</li>
+          <li><b>Find</b> — type any town, street or landmark in “Seek any place…” and press Enter.</li>
+          <li><b>Walk</b> — tap anywhere, then “Walk here”. Your footprints follow real footpaths from where you stand.</li>
+          <li><b>Appear</b> — “Appear here” moves you without walking; the target button finds where you really are.</li>
+          <li><b>Wanderers</b> — zoom in to street level to see the residents of the parchment walking the streets.</li>
         </ul>
+        <p className="help-fine">Map data © OpenStreetMap contributors, tiles by OpenFreeMap, search by Nominatim, walking routes by FOSSGIS OSRM.</p>
         <button className="btn primary" value="close">
-          <X aria-hidden /> Fold the parchment
+          <X aria-hidden /> Back to the map
         </button>
       </form>
     </dialog>

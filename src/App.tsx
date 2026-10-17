@@ -1,196 +1,277 @@
-import { CircleQuestionMark, PanelRight, Route as RouteIcon, Volume2, VolumeX, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { CircleQuestionMark, FoldVertical, Footprints as FootIcon, LocateFixed, Minus, Plus, Route as RouteIcon, Tag, Volume2, VolumeX, X } from 'lucide-react';
+import maplibregl, { type GeoJSONSource, type Map as MapLibre } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { HelpDialog } from './components/HelpDialog.tsx';
-import { LocationDetails } from './components/LocationDetails.tsx';
-import { MapCanvas } from './components/MapCanvas.tsx';
-import { MapControls } from './components/MapControls.tsx';
-import { MapLegend } from './components/MapLegend.tsx';
-import { MapSearch } from './components/MapSearch.tsx';
-import { ModeSwitcher } from './components/ModeSwitcher.tsx';
-import { LOCATION_BY_ID } from './data/locations.ts';
+import { Intro } from './components/Intro.tsx';
+import { formatCoord, PlaceNote } from './components/PlaceNote.tsx';
+import { SearchBox } from './components/SearchBox.tsx';
 import { useAmbientAudio } from './hooks/useAmbientAudio.ts';
-import { useMapNavigation } from './hooks/useMapNavigation.ts';
-import { useMapViewport } from './hooks/useMapViewport.ts';
-import { polyline } from './lib/polyline.ts';
-import type { Layers, MapLocation, MapMode, Point } from './types/map.ts';
+import type { LngLat } from './lib/geo.ts';
+import { placeAt, walkingRoute, type Place } from './lib/services.ts';
+import { createFootprints, type Footprints } from './map/footprints.ts';
+import { provideImages } from './map/images.ts';
+import { LABEL_LAYERS, parchmentStyle } from './map/style.ts';
 
-const media = (q: string) => typeof window !== 'undefined' && window.matchMedia(q).matches;
+/** King's Cross, London — a fitting place for a journey to begin. */
+const START: LngLat = [-0.12395, 51.53205];
 
-function useMedia(q: string) {
-  const [match, setMatch] = useState(() => media(q));
-  useEffect(() => {
-    const mq = window.matchMedia(q);
-    const on = () => setMatch(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, [q]);
-  return match;
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function storedName() {
+  try {
+    return localStorage.getItem('atlas-name') ?? '';
+  } catch {
+    return '';
+  }
 }
 
-export default function App() {
-  const reducedMotion = useMedia('(prefers-reduced-motion: reduce)');
-  const isMobile = useMedia('(max-width: 760px)');
-  const [mode, setModeState] = useState<MapMode>('explore');
-  const [layers, setLayers] = useState<Layers>({ labels: true, footprints: true, secrets: false, markers: true });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [panelOpen, setPanelOpen] = useState(() => !media('(max-width: 760px)'));
-  const [sound, setSound] = useState(false);
-  const helpRef = useRef<HTMLDialogElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-  const groupRef = useRef<SVGGElement>(null);
-  const coordRef = useRef<HTMLSpanElement>(null);
+interface Journey {
+  to: string;
+  meters: number;
+  onRoads: boolean;
+  arrived: boolean;
+}
 
-  const onHover = useCallback((p: Point | null) => {
-    if (coordRef.current) coordRef.current.textContent = p ? `${Math.round(p[0])} · ${Math.round(p[1])}` : '— · —';
-  }, []);
-  const vp = useMapViewport(svgRef, groupRef, { reducedMotion, onHover });
-  const nav = useMapNavigation(layers.secrets);
+const distanceText = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
+
+export default function App() {
+  const [opened, setOpened] = useState(false);
+  const [name, setName] = useState(storedName);
+  const [map, setMap] = useState<MapLibre | null>(null);
+  const [note, setNote] = useState<{ at: LngLat; place?: Place | null } | null>(null);
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [labels, setLabels] = useState(true);
+  const [wanderers, setWanderers] = useState(true);
+  const [sound, setSound] = useState(false);
+  const [zoom, setZoom] = useState(16);
+  const container = useRef<HTMLDivElement>(null);
+  const compass = useRef<HTMLButtonElement>(null);
+  const coordRef = useRef<HTMLSpanElement>(null);
+  const helpRef = useRef<HTMLDialogElement>(null);
+  const fp = useRef<Footprints | null>(null);
+  const popupEl = useRef<HTMLDivElement>(document.createElement('div'));
   const { rustle } = useAmbientAudio(sound);
 
-  const selected = selectedId ? LOCATION_BY_ID[selectedId] : null;
-
-  // Hiding secrets deselects a hidden place.
+  // ——— Map lifecycle ———
   useEffect(() => {
-    if (!layers.secrets && selected?.secret) setSelectedId(null);
-  }, [layers.secrets, selected]);
-
-  const setMode = (m: MapMode) => {
-    setModeState(m);
-    setLayers((l) => {
-      if (m === 'explore') return { ...l, labels: true, footprints: true, markers: true };
-      if (m === 'secrets') return { ...l, secrets: true, labels: true };
-      if (m === 'tracking') return { ...l, footprints: true };
-      return { ...l, footprints: false, markers: false };
+    const glyphs = new URL('./', document.baseURI).href + 'glyphs/{fontstack}/{range}.pbf';
+    const m = new maplibregl.Map({
+      container: container.current!,
+      style: parchmentStyle(glyphs),
+      center: START,
+      zoom: 16,
+      maxPitch: 0,
+      pitchWithRotate: false,
+      attributionControl: { compact: true },
     });
+    m.touchPitch.disable();
+    provideImages(m);
+    m.on('load', () => {
+      fp.current = createFootprints(m, {
+        start: START,
+        name: storedName() || 'A Wanderer',
+        reducedMotion: reducedMotion(),
+        onArrive: () => setJourney((j) => j && { ...j, arrived: true }),
+      });
+      setMap(m);
+    });
+    m.on('click', (e) => setNote({ at: [e.lngLat.lng, e.lngLat.lat] }));
+    m.on('zoomend', () => setZoom(m.getZoom()));
+    m.on('rotate', () => {
+      if (compass.current) compass.current.style.transform = `rotate(${-m.getBearing()}deg)`;
+    });
+    m.on('mousemove', (e) => {
+      if (coordRef.current) coordRef.current.textContent = formatCoord([e.lngLat.lng, e.lngLat.lat]);
+    });
+    return () => {
+      fp.current?.destroy();
+      m.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!map) return;
+    for (const id of LABEL_LAYERS) map.setLayoutProperty(id, 'visibility', labels ? 'visible' : 'none');
+  }, [map, labels]);
+
+  useEffect(() => fp.current?.setWanderers(wanderers), [map, wanderers]);
+
+  // ——— The tapped-spot note, rendered by React inside a MapLibre popup ———
+  const noteAt = note?.at;
+  useEffect(() => {
+    if (!map || !noteAt) return;
+    const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '300px', className: 'place-popup', offset: 12 })
+      .setLngLat(noteAt)
+      .setDOMContent(popupEl.current)
+      .addTo(map);
+    const ctrl = new AbortController();
+    placeAt(noteAt, ctrl.signal)
+      .then((place) => setNote((n) => (n?.at === noteAt && n.place === undefined ? { ...n, place } : n)))
+      .catch(() => setNote((n) => (n?.at === noteAt && n.place === undefined ? { ...n, place: null } : n)));
+    return () => {
+      ctrl.abort();
+      popup.remove();
+    };
+  }, [map, noteAt]);
+
+  const showRoute = (coords: LngLat[]) =>
+    (map?.getSource('route') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: coords.length ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }] : [],
+    });
+
+  const clearJourney = () => {
+    fp.current?.stop();
+    setJourney(null);
+    setMessage(null);
+    showRoute([]);
   };
 
-  const select = useCallback(
-    (id: string | null) => {
-      setSelectedId(id);
-      if (id) {
-        rustle();
-        setPanelOpen(true);
-      } else if (isMobile) setPanelOpen(false);
-    },
-    [rustle, isMobile],
-  );
-
-  const goTo = (id: string) => {
-    const loc = LOCATION_BY_ID[id];
-    if (loc.secret && !layers.secrets) setLayers((l) => ({ ...l, secrets: true }));
-    select(id);
-    vp.flyTo(loc.center);
+  const walkTo = async (to: LngLat, label: string) => {
+    if (!map || !fp.current) return;
+    setNote(null);
+    setMessage(null);
+    const from = fp.current.you();
+    const walk = await walkingRoute(from, to);
+    showRoute(walk.coords);
+    fp.current.walk(walk.coords);
+    setJourney({ to: label, meters: walk.meters, onRoads: walk.onRoads, arrived: false });
+    const b = new maplibregl.LngLatBounds(walk.coords[0], walk.coords[0]);
+    walk.coords.forEach((c) => b.extend(c));
+    map.fitBounds(b, { padding: 90, maxZoom: 17.5, duration: reducedMotion() ? 0 : 1200 });
   };
 
-  const onSearch = (loc: MapLocation) => goTo(loc.id);
+  const appear = (at: LngLat) => {
+    clearJourney();
+    fp.current?.setYou(at);
+    setNote(null);
+  };
 
-  const navigateTo = () => {
-    if (!selectedId) return;
-    const r = nav.navigate(selectedId);
-    if (r) {
-      vp.fitPoints(r.points);
-      if (isMobile) setPanelOpen(false);
+  const locate = () => {
+    if (!navigator.geolocation) return setMessage('This browser cannot tell where you are.');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const at: LngLat = [pos.coords.longitude, pos.coords.latitude];
+        appear(at);
+        map?.flyTo({ center: at, zoom: 17, duration: reducedMotion() ? 0 : 1600 });
+      },
+      () => setMessage('The parchment could not find you. Allow location access, or search for your street instead.'),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  const onSearch = (p: Place) => {
+    if (!map) return;
+    const opts = { duration: reducedMotion() ? 0 : 1800 };
+    if (p.bbox) map.fitBounds(p.bbox, { ...opts, maxZoom: 17, padding: 40 });
+    else map.flyTo({ ...opts, center: p.at, zoom: 17 });
+    setNote({ at: p.at, place: p });
+  };
+
+  const open = (n: string) => {
+    setName(n);
+    try {
+      localStorage.setItem('atlas-name', n);
+    } catch {
+      /* private mode: the name just won't be remembered */
     }
+    fp.current?.setYou(fp.current.you(), n);
+    setOpened(true);
+    rustle();
+    // the map was sized while hidden behind the intro
+    requestAnimationFrame(() => map?.resize());
   };
-
-  const routeLength = nav.route ? Math.round(polyline(nav.route.points).length / 3) : 0;
-  const routeRooms = nav.route?.ids.filter((id) => !LOCATION_BY_ID[id].passThrough).length ?? 0;
 
   return (
-    <div className={`app${panelOpen ? ' panel-open' : ''}`}>
+    <div className={`app${opened ? ' is-open' : ''}`}>
       <header className="topbar">
         <h1 className="brand">
           <span className="brand-small">The</span> Enchanted Atlas
         </h1>
-        <ModeSwitcher mode={mode} onChange={setMode} />
-        <MapSearch secretsRevealed={layers.secrets} onPick={onSearch} />
+        <SearchBox onPick={onSearch} />
         <div className="top-actions">
           <button className="icon-btn" onClick={() => setSound((s) => !s)} aria-pressed={sound} aria-label={sound ? 'Mute ambient sound' : 'Play ambient sound'} title={sound ? 'Mute' : 'Ambient sound'}>
             {sound ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
           </button>
-          <button className="icon-btn" onClick={() => setPanelOpen((o) => !o)} aria-pressed={panelOpen} aria-label="Toggle legend and details panel" title="Legend & details">
-            <PanelRight aria-hidden />
+          <button className="icon-btn" onClick={() => helpRef.current?.showModal()} aria-label="How to use the map" title="How to use the map">
+            <CircleQuestionMark aria-hidden />
+          </button>
+          <button className="icon-btn" onClick={() => setOpened(false)} aria-label="Fold the map" title="Fold the map">
+            <FoldVertical aria-hidden />
           </button>
         </div>
       </header>
 
       <main className="stage">
         <div className="sheet">
-          <MapCanvas
-            svgRef={svgRef}
-            groupRef={groupRef}
-            mode={mode}
-            layers={layers}
-            selectedId={selectedId}
-            originId={nav.origin}
-            route={nav.route}
-            arrived={nav.arrived}
-            reducedMotion={reducedMotion}
-            wasDrag={vp.wasDrag}
-            onSelect={select}
-            onArrive={nav.onArrive}
-          />
+          <div ref={container} className="map" />
           <div className="grain" aria-hidden />
           <div className="vignette" aria-hidden />
+          <p className="frame-text top" aria-hidden>
+            Cavte ambvla · qvod vides non totvm est · cavte ambvla · qvod vides non totvm est
+          </p>
+          <p className="frame-text bottom" aria-hidden>
+            Every street remembered · every footstep kept · every street remembered · every footstep kept
+          </p>
         </div>
 
-        <MapControls
-          layers={layers}
-          onToggle={(k) => setLayers((l) => ({ ...l, [k]: !l[k] }))}
-          onZoomIn={() => vp.zoomBy(1.4)}
-          onZoomOut={() => vp.zoomBy(1 / 1.4)}
-          onReset={vp.reset}
-        />
+        <div className="controls">
+          <div className="control-group" role="group" aria-label="Zoom">
+            <button className="ctl" onClick={() => map?.zoomIn()} aria-label="Zoom in" title="Zoom in">
+              <Plus aria-hidden />
+            </button>
+            <button className="ctl" onClick={() => map?.zoomOut()} aria-label="Zoom out" title="Zoom out">
+              <Minus aria-hidden />
+            </button>
+            <button className="ctl" onClick={locate} aria-label="Find where I am" title="Find where I am">
+              <LocateFixed aria-hidden />
+            </button>
+          </div>
+          <div className="control-group" role="group" aria-label="Map layers">
+            <button className="ctl toggle" aria-pressed={labels} onClick={() => setLabels((v) => !v)} aria-label="Place names" title={`${labels ? 'Hide' : 'Show'} place names`}>
+              <Tag aria-hidden />
+            </button>
+            <button className="ctl toggle" aria-pressed={wanderers} onClick={() => setWanderers((v) => !v)} aria-label="Wandering footprints" title={`${wanderers ? 'Hide' : 'Show'} wandering footprints`}>
+              <FootIcon aria-hidden />
+            </button>
+          </div>
+        </div>
 
-        {panelOpen && (
-          <aside className="panel" aria-label={selected ? 'Location details' : 'Legend and directory'}>
-            <div className="panel-grip" aria-hidden />
-            {selected ? (
-              <LocationDetails
-                loc={selected}
-                secretsRevealed={layers.secrets}
-                isOrigin={selected.id === nav.origin}
-                onNavigate={navigateTo}
-                onSetOrigin={() => {
-                  nav.clear();
-                  nav.setOrigin(selected.id);
-                }}
-                onSelect={goTo}
-                onClose={() => select(null)}
-              />
-            ) : (
-              <>
-                <button className="icon-btn close panel-close" onClick={() => setPanelOpen(false)} aria-label="Close panel">
-                  <X aria-hidden />
-                </button>
-                <MapLegend secretsRevealed={layers.secrets} onSelect={goTo} />
-              </>
-            )}
-          </aside>
-        )}
+        <button ref={compass} className="compass" onClick={() => map?.resetNorth()} aria-label="Turn the map back to north" title="North">
+          <svg viewBox="-50 -50 100 100" aria-hidden>
+            <circle r="34" className="c-ring" />
+            <circle r="30" className="c-ring faint" />
+            <path d="M0 -46 L6 -6 L0 0 L-6 -6Z" className="c-north" />
+            <path d="M0 46 L6 6 L0 0 L-6 6Z M46 0 L6 6 L0 0 L6 -6Z M-46 0 L-6 6 L0 0 L-6 -6Z" className="c-point" />
+            <text y="-36" textAnchor="middle" className="c-n">N</text>
+          </svg>
+        </button>
 
         <div className="route-banner" aria-live="polite">
-          {nav.route && (
+          {journey && (
             <div className="banner note-emerge">
               <RouteIcon aria-hidden />
               <p>
                 <strong>
-                  {LOCATION_BY_ID[nav.route.ids[0]].name} → {LOCATION_BY_ID[nav.route.ids[nav.route.ids.length - 1]].name}
+                  {journey.arrived ? `${name || 'You'} arrived at` : `${name || 'You'} is walking to`} {journey.to}
                 </strong>
                 <span>
-                  {routeRooms} places · {nav.route.ids.length - 1} segments · ≈{routeLength} paces
-                  {nav.arrived ? ' · arrived' : ''}
+                  {distanceText(journey.meters)} · about {Math.max(1, Math.round(journey.meters / 80))} min on foot
+                  {journey.onRoads ? '' : ' · no footpath known, cutting straight across'}
                 </span>
               </p>
-              <button className="icon-btn" onClick={nav.clear} aria-label="Clear route">
+              <button className="icon-btn" onClick={clearJourney} aria-label="Clear route">
                 <X aria-hidden />
               </button>
             </div>
           )}
-          {nav.message && (
+          {message && (
             <div className="banner warn note-emerge">
-              <p>{nav.message}</p>
-              <button className="icon-btn" onClick={nav.clear} aria-label="Dismiss message">
+              <p>{message}</p>
+              <button className="icon-btn" onClick={() => setMessage(null)} aria-label="Dismiss message">
                 <X aria-hidden />
               </button>
             </div>
@@ -198,18 +279,28 @@ export default function App() {
         </div>
 
         <footer className="statusbar">
-          <span className="coords" title="Map coordinates under the pointer">
-            <span ref={coordRef}>— · —</span>
+          <span className="coords" title="Coordinates under the pointer">
+            <span ref={coordRef}>{formatCoord(START)}</span>
           </span>
-          <span className="zoom">{Math.round(vp.zoom * 100)}%</span>
-          <span className="where">{selected ? selected.name : `Start: ${LOCATION_BY_ID[nav.origin].name}`}</span>
-          <button className="icon-btn" onClick={() => helpRef.current?.showModal()} aria-label="How to use the map">
-            <CircleQuestionMark aria-hidden />
-          </button>
+          <span className="zoom">zoom {zoom.toFixed(1)}</span>
+          {zoom < 15 && <span className="where">Lean closer to see the wanderers</span>}
         </footer>
       </main>
 
+      {!opened && <Intro name={name} onOpen={open} />}
       <HelpDialog ref={helpRef} />
+
+      {note &&
+        createPortal(
+          <PlaceNote
+            at={note.at}
+            place={note.place}
+            onWalk={() => walkTo(note.at, note.place?.name ?? 'an unnamed spot')}
+            onAppear={() => appear(note.at)}
+            onClose={() => setNote(null)}
+          />,
+          popupEl.current,
+        )}
     </div>
   );
 }
