@@ -20,7 +20,7 @@ export function PlaceNote({ at, place, onWalk, onAppear, onClose }: Props) {
       <button className="icon-btn note-close" onClick={onClose} aria-label="Close note">
         <X aria-hidden />
       </button>
-      <h2>{place === undefined ? 'Reading the ink…' : place ? place.name : 'An unnamed spot'}</h2>
+      <h2>{place ? place.name : 'A spot on the map'}</h2>
       {place?.detail && <p className="note-detail">{place.detail}</p>}
       <p className="note-coord">{formatCoord(at)}</p>
       <div className="actions">

@@ -123,14 +123,7 @@ export default function App() {
       .setLngLat(noteAt)
       .setDOMContent(popupEl.current)
       .addTo(map);
-    const ctrl = new AbortController();
-    placeAt(noteAt, ctrl.signal)
-      .then((place) => setNote((n) => (n?.at === noteAt && n.place === undefined ? { ...n, place } : n)))
-      .catch(() => setNote((n) => (n?.at === noteAt && n.place === undefined ? { ...n, place: null } : n)));
-    return () => {
-      ctrl.abort();
-      popup.remove();
-    };
+    return () => void popup.remove();
   }, [map, noteAt]);
 
   // Friends become walkers on the map, with a dashed line to where they are going.
@@ -217,10 +210,13 @@ export default function App() {
     showRoute([]);
   };
 
-  const walkTo = async (to: LngLat, label: string) => {
+  const walkTo = async (to: LngLat, known?: Place | null) => {
     if (!map || !fp.current) return;
     setNote(null);
     setMessage(null);
+    // The place name is looked up only now, once per walk, to stay within Nominatim's 1 request/second rule.
+    const place = known ?? (await placeAt(to).catch(() => null));
+    const label = place?.name ?? 'an unnamed spot';
     const from = fp.current.you();
     const walk = await walkingRoute(from, to);
     showRoute(walk.coords);
@@ -411,7 +407,7 @@ export default function App() {
           <PlaceNote
             at={note.at}
             place={note.place}
-            onWalk={() => walkTo(note.at, note.place?.name ?? 'an unnamed spot')}
+            onWalk={() => walkTo(note.at, note.place)}
             onAppear={() => appear(note.at)}
             onClose={() => setNote(null)}
           />,
