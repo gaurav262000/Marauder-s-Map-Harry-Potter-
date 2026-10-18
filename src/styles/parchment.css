@@ -221,6 +221,10 @@ button, input { font: inherit; color: inherit; }
   pointer-events: none;
   box-shadow: 0 1px 3px rgba(40, 20, 5, 0.25);
 }
+/* over water the tag rides the broom: lifted and bobbing (`translate` composes with the marker's own transform) */
+.walker-tag.is-flying { animation: fly 0.7s ease-in-out infinite alternate; }
+@keyframes fly { from { translate: 0 -22px; } to { translate: 0 -30px; } }
+@media (prefers-reduced-motion: reduce) { .walker-tag.is-flying { animation: none; translate: 0 -26px; } }
 .walker-tag.is-you { border-color: var(--wax); color: var(--wax-dark); font-size: 0.95rem; box-shadow: 0 1px 4px rgba(122, 29, 21, 0.35); }
 
 /* Popup note */

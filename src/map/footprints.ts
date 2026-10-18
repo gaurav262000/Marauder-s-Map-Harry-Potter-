@@ -10,6 +10,8 @@ const ROAD_LAYERS = ['minor-casing', 'major-casing', 'path'];
 interface Print {
   at: LngLat;
   bearing: number;
+  /** over water the walker flies: a broom instead of a footprint */
+  flying: boolean;
 }
 
 interface Walker {
@@ -90,9 +92,13 @@ export function createFootprints(
 
   const mpp = () => metersPerPixel(map.getCenter().lat, map.getZoom());
 
+  const overWater = (at: LngLat) => map.queryRenderedFeatures(map.project(at), { layers: ['water'] }).length > 0;
+
   const plant = (w: Walker, at: LngLat, brg: number) => {
+    const flying = overWater(at);
+    w.marker.getElement().classList.toggle('is-flying', flying);
     w.left = !w.left;
-    w.prints.unshift({ at: offset(at, brg + (w.left ? -90 : 90), SIDE_PX * mpp()), bearing: brg });
+    w.prints.unshift({ at: flying ? at : offset(at, brg + (w.left ? -90 : 90), SIDE_PX * mpp()), bearing: brg, flying });
     if (w.prints.length > PRINTS) w.prints.length = PRINTS;
     dirty = true;
   };
@@ -104,7 +110,12 @@ export function createFootprints(
       w.prints.map((p, i) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: p.at },
-        properties: { bearing: p.bearing, opacity: +(1 - i / PRINTS).toFixed(2), you: w.you },
+        properties: {
+          bearing: p.bearing,
+          opacity: +(1 - i / PRINTS).toFixed(2),
+          // the newest print over water is the broom itself; older ones a trail of sparks
+          icon: p.flying ? (i === 0 ? (w.you ? 'broom-you' : 'broom') : 'spark') : w.you ? 'foot-you' : 'foot',
+        },
       })),
     );
     (map.getSource('prints') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features });
@@ -242,6 +253,7 @@ export function createFootprints(
       w.marker.setLngLat(to);
       if (w.you) here = to;
       w.prints = [];
+      w.marker.getElement().classList.remove('is-flying');
       dirty = true;
       return;
     }
@@ -258,6 +270,7 @@ export function createFootprints(
       here = at;
       me.marker.setLngLat(at);
       if (n) me.marker.getElement().textContent = n;
+      me.marker.getElement().classList.remove('is-flying');
       me.prints = [];
       dirty = true;
     },

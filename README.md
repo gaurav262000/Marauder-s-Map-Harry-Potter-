@@ -23,7 +23,7 @@ npm test           # geometry checks (node:test, Node 22+)
 ## What it does
 
 - **The whole world** — pan, zoom, pinch and rotate anywhere; street-level detail everywhere OpenStreetMap has it.
-- **Your footprints** — tap a spot, then **Walk here**: a walking route is fetched and your prints, labelled with your name, walk it. **Appear here** moves you instantly; the target button jumps to your real location.
+- **Your footprints** — tap a spot, then **Walk here**: a walking route is fetched and your prints, labelled with your name, walk it. Over water the prints give way to a broom and a trail of sparks. **Appear here** moves you instantly; the target button jumps to your real location.
 - **Wanderers** — at street level, four residents of the parchment stroll along whichever streets are on screen, turning at junctions.
 - **Friends & groups** — start a group and send the invite link. Opening the link only lets someone *ask* to join; the group owner approves or declines each request (checking a 20-digit safety number shown on both phones). Approved members see each other live: name tag, footprints, distance, and where each person is heading. The owner can remove anyone, which re-keys the group.
 - **Seek any place** — search for any town, street or landmark (press Enter).

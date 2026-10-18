@@ -31,9 +31,52 @@ const foot = (color: string) =>
     c.fill();
   });
 
+/** A broom flying north: handle ahead, bristles trailing. */
+const broom = (color: string) =>
+  draw(22, 50, (c) => {
+    c.strokeStyle = color;
+    c.lineCap = 'round';
+    c.lineWidth = 2.2;
+    c.beginPath();
+    c.moveTo(11, 2);
+    c.lineTo(11, 30);
+    c.stroke();
+    // binding
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(8, 30);
+    c.lineTo(14, 30);
+    c.stroke();
+    // bristles, fanning out behind
+    c.lineWidth = 0.9;
+    c.beginPath();
+    for (let i = -5; i <= 5; i++) {
+      c.moveTo(11 + i * 0.5, 31);
+      c.quadraticCurveTo(11 + i * 0.9, 40, 11 + i * 1.7, 48);
+    }
+    c.stroke();
+  });
+
 const PAINTERS: Record<string, () => ImageData> = {
   foot: () => foot('rgba(94, 59, 28, 0.95)'),
   'foot-you': () => foot('rgba(110, 20, 14, 0.95)'),
+  broom: () => broom('rgba(94, 59, 28, 0.95)'),
+  'broom-you': () => broom('rgba(110, 20, 14, 0.95)'),
+  // Sparks trailing a broom.
+  spark: () =>
+    draw(18, 18, (c) => {
+      c.fillStyle = 'rgba(94, 59, 28, 0.9)';
+      c.strokeStyle = 'rgba(245, 233, 201, 0.9)';
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(9, 0);
+      c.quadraticCurveTo(10, 8, 18, 9);
+      c.quadraticCurveTo(10, 10, 9, 18);
+      c.quadraticCurveTo(8, 10, 0, 9);
+      c.quadraticCurveTo(8, 8, 9, 0);
+      c.stroke();
+      c.fill();
+    }),
   // Engraver's hatching for water.
   hatch: () =>
     draw(12, 12, (c) => {

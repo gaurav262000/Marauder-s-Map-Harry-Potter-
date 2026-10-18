@@ -69,7 +69,7 @@ export function parchmentStyle(glyphs: string): StyleSpecification {
         type: 'symbol',
         source: 'prints',
         layout: {
-          'icon-image': ['case', ['get', 'you'], 'foot-you', 'foot'],
+          'icon-image': ['get', 'icon'],
           'icon-rotate': ['get', 'bearing'],
           'icon-rotation-alignment': 'map',
           'icon-allow-overlap': true,
