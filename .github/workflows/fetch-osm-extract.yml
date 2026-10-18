@@ -3,6 +3,9 @@ name: Fetch OSM extract (demo video data)
 # One-off helper: downloads an OpenStreetMap extract for a bounding box and
 # commits it as a small .osm.pbf so the demo video can be rendered offline.
 on:
+  push:
+    branches: [claude/enchanted-parchment-map-3y09va]
+    paths: [.github/workflows/fetch-osm-extract.yml]
   workflow_dispatch:
     inputs:
       bbox:
@@ -15,6 +18,10 @@ on:
 permissions:
   contents: write
 
+env:
+  BBOX: ${{ inputs.bbox || '28.6050,77.1950,28.6450,77.2400' }}
+  NAME: ${{ inputs.name || 'delhi' }}
+
 jobs:
   fetch:
     runs-on: ubuntu-latest
@@ -22,17 +29,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Download from Overpass
         run: |
-          Q="[out:xml][timeout:180];(nwr[highway](${{ inputs.bbox }});nwr[building](${{ inputs.bbox }});nwr[leisure](${{ inputs.bbox }});nwr[landuse](${{ inputs.bbox }});nwr[natural](${{ inputs.bbox }});nwr[waterway](${{ inputs.bbox }});nwr[railway](${{ inputs.bbox }});node[place](${{ inputs.bbox }});nwr[tourism](${{ inputs.bbox }});nwr[historic](${{ inputs.bbox }});nwr[amenity][name](${{ inputs.bbox }}););(._;>;);out body;"
+          Q="[out:xml][timeout:180];(nwr[highway]($BBOX);nwr[building]($BBOX);nwr[leisure]($BBOX);nwr[landuse]($BBOX);nwr[natural]($BBOX);nwr[waterway]($BBOX);nwr[railway]($BBOX);node[place]($BBOX);nwr[tourism]($BBOX);nwr[historic]($BBOX);nwr[amenity][name]($BBOX););(._;>;);out body;"
           curl -sSf --retry 3 --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter -o extract.osm
           ls -la extract.osm
       - name: Convert to PBF
         run: |
           pip install -q osmium
-          python -c "import osmium; w=osmium.SimpleWriter('${{ inputs.name }}.osm.pbf'); osmium.apply('extract.osm', w); w.close()"
-          mkdir -p demo-data && mv ${{ inputs.name }}.osm.pbf demo-data/ && ls -la demo-data
+          python -c "import osmium; w=osmium.SimpleWriter('$NAME.osm.pbf'); osmium.apply('extract.osm', w); w.close()"
+          mkdir -p demo-data && mv $NAME.osm.pbf demo-data/ && ls -la demo-data
       - name: Commit
         run: |
           git config user.name github-actions
           git config user.email github-actions@users.noreply.github.com
           git add demo-data
-          git commit -m "Add ${{ inputs.name }} OSM extract for the demo video" && git push
+          git commit -m "Add $NAME OSM extract for the demo video" && git push
