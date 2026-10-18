@@ -1,5 +1,6 @@
 // End-to-end crypto for groups. Nothing here trusts the relay:
-// - each device has its own ECDH identity key pair;
+// - each device has its own ECDH key (to receive the group key) and ECDSA key
+//   (to sign its positions); both private keys are non-extractable;
 // - the group key (AES-GCM) is created by the group owner and handed to each
 //   approved member sealed to that member's public key;
 // - the invite link carries the owner's key fingerprint, so a joiner only
@@ -8,10 +9,14 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'; // no look-alikes (0/o, 1/l/i)
 const ECDH = { name: 'ECDH', namedCurve: 'P-256' } as const;
+const ECDSA = { name: 'ECDSA', namedCurve: 'P-256' } as const;
+const SIG = { name: 'ECDSA', hash: 'SHA-256' } as const;
 
 export interface Identity {
-  priv: JsonWebKey;
+  priv: CryptoKey;
   pub: JsonWebKey;
+  signPriv: CryptoKey;
+  signPub: JsonWebKey;
 }
 
 /** e.g. "k7mq-4hxa-p2vt": ~74 bits, readable aloud. */
@@ -23,10 +28,15 @@ export function newGroupCode(): string {
 
 export const normalizeCode = (code: string) => code.trim().toLowerCase().replace(/\s+/g, '');
 
-const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const unb64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+export const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+export const unb64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 const hex = (bytes: Uint8Array) => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 const sha256 = async (data: Uint8Array) => new Uint8Array(await crypto.subtle.digest('SHA-256', data as BufferSource));
+
+/** Only the public coordinates: never pass private or extra fields along. */
+export const publicPart = (k: JsonWebKey): JsonWebKey => ({ kty: 'EC', crv: 'P-256', x: k.x, y: k.y });
+export const isPub = (v: unknown): v is JsonWebKey => !!v && typeof (v as JsonWebKey).x === 'string' && typeof (v as JsonWebKey).y === 'string';
+export const samePub = (a: JsonWebKey, b: JsonWebKey) => a.x === b.x && a.y === b.y;
 
 /** Lobby: where join requests wait. Derived from the invite code. */
 export async function lobbyKeys(code: string): Promise<{ key: CryptoKey; topic: string }> {
@@ -37,7 +47,7 @@ export async function lobbyKeys(code: string): Promise<{ key: CryptoKey; topic: 
   return { key, topic: hex(bits) };
 }
 
-/** A fresh random group key, as text so it can be stored and sent. */
+/** A fresh random group key, as text so the owner can hand it out. */
 export const newGroupKey = () => b64(crypto.getRandomValues(new Uint8Array(32)));
 
 /** The group key and the relay topic it implies (the topic never reveals the key). */
@@ -48,9 +58,16 @@ export async function groupKeys(groupKey: string): Promise<{ key: CryptoKey; top
   return { key, topic };
 }
 
+/** Private keys are created non-extractable: page code can use them but never read or copy them out. */
 export async function newIdentity(): Promise<Identity> {
-  const pair = await crypto.subtle.generateKey(ECDH, true, ['deriveKey']);
-  return { priv: await crypto.subtle.exportKey('jwk', pair.privateKey), pub: await crypto.subtle.exportKey('jwk', pair.publicKey) };
+  const dh = await crypto.subtle.generateKey(ECDH, false, ['deriveKey']);
+  const sg = await crypto.subtle.generateKey(ECDSA, false, ['sign', 'verify']);
+  return {
+    priv: dh.privateKey,
+    pub: publicPart(await crypto.subtle.exportKey('jwk', dh.publicKey)),
+    signPriv: sg.privateKey,
+    signPub: publicPart(await crypto.subtle.exportKey('jwk', sg.publicKey)),
+  };
 }
 
 const pubBytes = (pub: JsonWebKey) => enc.encode(`${pub.x}.${pub.y}`);
@@ -58,28 +75,53 @@ const pubBytes = (pub: JsonWebKey) => enc.encode(`${pub.x}.${pub.y}`);
 /** Short hex fingerprint of a public key; goes in invite links. */
 export const fingerprint = async (pub: JsonWebKey) => hex((await sha256(pubBytes(pub))).slice(0, 10));
 
-/** Six digits both people can read aloud to confirm they hold the same key. */
-export async function safetyNumber(pub: JsonWebKey): Promise<string> {
-  const d = await sha256(new Uint8Array([...enc.encode('safety'), ...pubBytes(pub)]));
-  const n = (((d[0] << 16) | (d[1] << 8) | d[2]) % 1_000_000).toString().padStart(6, '0');
-  return `${n.slice(0, 3)} ${n.slice(3)}`;
+/**
+ * Twenty digits both people read aloud to confirm a request is genuine.
+ * ~66 bits: far too many to forge by generating keys until one matches.
+ */
+export async function safetyNumber(pub: JsonWebKey, signPub: JsonWebKey): Promise<string> {
+  const d = await sha256(new Uint8Array([...enc.encode('enchanted-atlas/safety'), ...pubBytes(pub), ...pubBytes(signPub)]));
+  const view = new DataView(d.buffer);
+  return [0, 4, 8, 12].map((i) => (view.getUint32(i) % 100_000).toString().padStart(5, '0')).join(' ');
 }
 
 /** AES key shared by exactly two identities (ECDH). */
-async function pairKey(myPriv: JsonWebKey, theirPub: JsonWebKey): Promise<CryptoKey> {
-  const priv = await crypto.subtle.importKey('jwk', myPriv, ECDH, false, ['deriveKey']);
-  const pub = await crypto.subtle.importKey('jwk', { kty: theirPub.kty, crv: theirPub.crv, x: theirPub.x, y: theirPub.y }, ECDH, false, []);
-  return crypto.subtle.deriveKey({ name: 'ECDH', public: pub }, priv, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+async function pairKey(myPriv: CryptoKey, theirPub: JsonWebKey): Promise<CryptoKey> {
+  const pub = await crypto.subtle.importKey('jwk', publicPart(theirPub), ECDH, false, []);
+  return crypto.subtle.deriveKey({ name: 'ECDH', public: pub }, myPriv, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
 
-export const sealTo = async (myPriv: JsonWebKey, theirPub: JsonWebKey, value: unknown) => seal(await pairKey(myPriv, theirPub), value);
-export const unsealFrom = async (myPriv: JsonWebKey, theirPub: JsonWebKey, bytes: Uint8Array) => {
+export const sealTo = async (myPriv: CryptoKey, theirPub: JsonWebKey, value: unknown) => seal(await pairKey(myPriv, theirPub), value);
+export const unsealFrom = async (myPriv: CryptoKey, theirPub: JsonWebKey, bytes: Uint8Array) => {
   try {
     return await unseal(await pairKey(myPriv, theirPub), bytes);
   } catch {
     return null; // malformed public key
   }
 };
+
+/** A signed statement: the exact JSON text plus a signature over it. */
+export interface Signed {
+  body: string;
+  sig: string;
+}
+
+export async function sign(signPriv: CryptoKey, value: unknown): Promise<Signed> {
+  const body = JSON.stringify(value);
+  return { body, sig: b64(new Uint8Array(await crypto.subtle.sign(SIG, signPriv, enc.encode(body)))) };
+}
+
+/** The parsed value if `s` was signed by `signPub`, else null. */
+export async function verify(signPub: JsonWebKey, s: unknown): Promise<unknown> {
+  const v = s as Partial<Signed> | null;
+  if (!v || typeof v.body !== 'string' || typeof v.sig !== 'string') return null;
+  try {
+    const key = await crypto.subtle.importKey('jwk', publicPart(signPub), ECDSA, false, ['verify']);
+    return (await crypto.subtle.verify(SIG, key, unb64(v.sig), enc.encode(v.body))) ? JSON.parse(v.body) : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function seal(key: CryptoKey, value: unknown): Promise<Uint8Array> {
   const iv = crypto.getRandomValues(new Uint8Array(12));

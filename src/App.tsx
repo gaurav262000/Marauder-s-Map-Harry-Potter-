@@ -390,7 +390,7 @@ export default function App() {
           online={grp.online}
           members={visibleMembers}
           requests={grp.requests}
-          myPub={grp.identity?.pub ?? null}
+          myKeys={grp.identity}
           youAt={fp.current?.you() ?? START}
           onCreate={grp.create}
           onJoin={grp.join}

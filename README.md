@@ -36,16 +36,16 @@ No API keys are needed. Map tiles from [OpenFreeMap](https://openfreemap.org) (O
 
 ### Group security
 
-- Every device makes its own ECDH (P-256) key pair; the private key never leaves the device (stored in the browser).
+- Every device makes its own key pairs: ECDH P-256 (to receive the group key) and ECDSA P-256 (to sign its positions). Private keys are created **non-extractable** and kept in IndexedDB: the page can use them but cannot read or copy them out.
 - The owner creates a random AES-256-GCM group key. It is only ever sent sealed to an approved member's public key, so the relay and anyone holding the invite link cannot read it.
 - The invite link carries the owner's key fingerprint; a device accepts a group key (or a "declined" notice) only if it is sealed by that exact key.
-- Join requests show a safety number derived from the requester's public key on both phones, so the owner can confirm a request really comes from the right person before approving.
+- Join requests show a **20-digit safety number** on both phones, derived from the requester's keys (~66 bits, too many to forge by generating keys). If a request's keys change after it first arrived, it is flagged and cannot be approved.
+- The owner publishes a **signed roster** (who may post, under which name). Every position is signed by its sender and accepted only if the signature matches that member's key in the roster and the current key epoch, so members can't fake each other's positions or names, and old messages can't be replayed after a re-key.
 - Removing a member rotates the group key and re-sends it to everyone else; the removed device can no longer read new positions.
-- Positions travel through free public MQTT relays (HiveMQ and EMQX, override with `VITE_MQTT_BROKERS`). Topics are derived from hashes, and payloads are encrypted, so the relay sees neither names nor places.
+- Production builds ship a **Content-Security-Policy** that only allows scripts from the site itself and network connections to the map, search, routing and relay hosts.
+- Positions travel through free public MQTT relays (HiveMQ and EMQX, override with `VITE_MQTT_BROKERS`). Topics are derived from hashes and payloads are encrypted, so the relay sees neither names nor places.
 
-Limits: there are no accounts, so identity is per browser (clearing site data means asking to join again), and approved members are trusted not to forge each other's positions.
-
-Label glyphs for the IM Fell typefaces are pre-generated into `public/glyphs/` by `scripts/build-glyphs.mjs`.
+Known limits: the public relays have no access control, so anyone can delete or flood messages (disrupting the group, not reading it), and relay operators see IP addresses and message timing. There are no accounts: identity is per browser, so clearing site data means asking to join again, and if the owner clears theirs the group can no longer approve anyone.
 
 ## Structure
 

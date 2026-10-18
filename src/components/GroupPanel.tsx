@@ -1,9 +1,9 @@
-import { Check, Copy, LogOut, Radio, Share2, ShieldCheck, UserMinus, Users, X } from 'lucide-react';
+import { Check, Copy, LogOut, Radio, Share2, ShieldAlert, ShieldCheck, UserMinus, Users, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
-import type { GroupState, Invite } from '../hooks/useGroup.ts';
+import type { GroupState, Invite, RequestView } from '../hooks/useGroup.ts';
 import { inviteLink, parseInvite } from '../hooks/useGroup.ts';
 import { distance, type LngLat } from '../lib/geo.ts';
-import type { JoinRequest, Member } from '../lib/group.ts';
+import type { Member } from '../lib/group.ts';
 import { safetyNumber } from '../lib/groupCrypto.ts';
 
 interface Props {
@@ -11,13 +11,14 @@ interface Props {
   invite: Invite | null;
   online: boolean;
   members: Member[];
-  requests: JoinRequest[];
-  myPub: JsonWebKey | null;
+  requests: RequestView[];
+  /** this device's public keys, for its own safety number */
+  myKeys: { pub: JsonWebKey; signPub: JsonWebKey } | null;
   youAt: LngLat;
   onCreate: () => void;
   onJoin: (inv: Invite) => void;
-  onApprove: (r: JoinRequest) => void;
-  onDecline: (r: JoinRequest) => void;
+  onApprove: (r: RequestView) => void;
+  onDecline: (r: RequestView) => void;
   onRemove: (id: string) => void;
   onToggleShare: () => void;
   onLeave: () => void;
@@ -33,12 +34,12 @@ const ago = (t: number) => {
 };
 const far = (m: number) => (m < 1000 ? `${Math.round(m)} m away` : `${(m / 1000).toFixed(1)} km away`);
 
-function Safety({ pub }: { pub: JsonWebKey | null }) {
+function Safety({ keys }: { keys: { pub: JsonWebKey; signPub: JsonWebKey } | null }) {
   const [n, setN] = useState('');
   useEffect(() => {
-    if (pub) void safetyNumber(pub).then(setN);
-  }, [pub]);
-  return <span className="safety">{n || '··· ···'}</span>;
+    if (keys) void safetyNumber(keys.pub, keys.signPub).then(setN);
+  }, [keys]);
+  return <span className="safety">{n || '····· ····· ····· ·····'}</span>;
 }
 
 export function GroupPanel(p: Props) {
@@ -66,7 +67,7 @@ export function GroupPanel(p: Props) {
 
   const yourNumber = (
     <p className="fine">
-      Your safety number is <Safety pub={p.myPub} />. The owner sees the same number next to your request; read it out to them on a call so they know it is really you.
+      Your safety number is <Safety keys={p.myKeys} />. The owner sees the same number next to your request; read all 20 digits to them on a call so they know it is really you.
     </p>
   );
 
@@ -92,7 +93,7 @@ export function GroupPanel(p: Props) {
             </>
           ) : (
             <>
-              <button className="btn primary" onClick={p.onCreate} disabled={!p.myPub}>
+              <button className="btn primary" onClick={p.onCreate} disabled={!p.myKeys}>
                 Start a new group
               </button>
               <p className="or">or join with an invite</p>
@@ -148,13 +149,19 @@ export function GroupPanel(p: Props) {
               <h3>Asking to join</h3>
               <ul className="members">
                 {p.requests.map((r) => (
-                  <li key={r.id} className="request">
+                  <li key={r.id} className={`request${r.changed ? ' is-changed' : ''}`}>
                     <span className="m-name">{r.name}</span>
-                    <span className="m-where">
-                      Safety number <Safety pub={r.pub} /> — check it matches their screen
-                    </span>
+                    {r.changed ? (
+                      <span className="m-where warn-text">
+                        <ShieldAlert aria-hidden className="inline-icon" /> This request's keys changed since it first arrived. Someone may be pretending to be {r.name}. Decline, and ask them to send a new request.
+                      </span>
+                    ) : (
+                      <span className="m-where">
+                        Safety number <Safety keys={r} /> — all 20 digits must match their screen
+                      </span>
+                    )}
                     <span className="req-actions">
-                      <button className="btn primary" onClick={() => p.onApprove(r)}>
+                      <button className="btn primary" onClick={() => p.onApprove(r)} disabled={r.changed}>
                         <Check aria-hidden /> Approve
                       </button>
                       <button className="btn" onClick={() => p.onDecline(r)}>

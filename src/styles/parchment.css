@@ -421,6 +421,7 @@ button, input { font: inherit; color: inherit; }
 .leave { margin-top: 6px; }
 .safety { font: 600 1rem ui-monospace, 'SFMono-Regular', Menlo, monospace; letter-spacing: 0.08em; color: var(--ink-dark); white-space: nowrap; }
 .request { display: grid; gap: 4px; padding: 10px 0; }
+.request.is-changed { box-shadow: inset 3px 0 0 var(--wax); padding-left: 10px; }
 .req-actions { display: flex; gap: 8px; margin-top: 4px; }
 .req-actions .btn { flex: 1; }
 .approved { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
