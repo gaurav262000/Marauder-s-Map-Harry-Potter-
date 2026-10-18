@@ -14,6 +14,7 @@ jobs:
       - run: >-
           node scripts/relay-probe.mjs
           wss://broker.hivemq.com:8884/mqtt wss://broker.emqx.io:8084/mqtt wss://broker-cn.emqx.io:8084/mqtt
-          wss://test.mosquitto.org:8081/mqtt wss://mqtt.eclipseprojects.io/mqtt wss://public:public@public.cloud.shiftr.io
-          wss://broker.hivemq.com:8884/mqtt
+          wss://test.mosquitto.org:8081/mqtt wss://test.mosquitto.org:8081 wss://mqtt.eclipseprojects.io/mqtt
+          wss://public:public@public.cloud.shiftr.io wss://broker.emqx.io:443/mqtt wss://broker.hivemq.com:443/mqtt
+          wss://mqtt-dashboard.com:8884/mqtt wss://public.mqtthq.com:8084/mqtt
       - run: node scripts/relay-check.mjs https://gaurav262000.github.io/Marauder-s-Map-Harry-Potter-/

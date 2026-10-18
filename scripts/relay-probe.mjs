@@ -3,7 +3,7 @@ import mqtt from 'mqtt';
 
 const URLS = process.argv.slice(2);
 const topic = `enchanted-atlas/probe/${Math.random().toString(36).slice(2)}`;
-const once = (c, ev) => new Promise((ok, fail) => { c.once(ev, ok); c.once('error', fail); });
+const once = (c, ev) => new Promise((ok, fail) => { if (ev === 'connect' && c.connected) return ok(); c.once(ev, ok); c.once('error', fail); });
 const timeout = (ms) => new Promise((_, fail) => setTimeout(() => fail(new Error(`timeout ${ms}ms`)), ms));
 
 for (const url of URLS) {
