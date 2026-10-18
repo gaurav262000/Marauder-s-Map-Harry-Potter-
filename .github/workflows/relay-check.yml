@@ -13,8 +13,7 @@ jobs:
       - run: npm ci && npm i --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
       - run: >-
           node scripts/relay-probe.mjs
-          wss://broker.hivemq.com:8884/mqtt wss://broker.emqx.io:8084/mqtt wss://broker-cn.emqx.io:8084/mqtt
-          wss://test.mosquitto.org:8081/mqtt wss://test.mosquitto.org:8081 wss://mqtt.eclipseprojects.io/mqtt
-          wss://public:public@public.cloud.shiftr.io wss://broker.emqx.io:443/mqtt wss://broker.hivemq.com:443/mqtt
-          wss://mqtt-dashboard.com:8884/mqtt wss://public.mqtthq.com:8084/mqtt
+          wss://broker.emqx.io:8084/mqtt wss://public:public@public.cloud.shiftr.io wss://test.mosquitto.org:8081/mqtt
+      - name: Wait for the latest deploy
+        run: for i in $(seq 36); do curl -s https://gaurav262000.github.io/Marauder-s-Map-Harry-Potter-/ | grep -q shiftr && exit 0; sleep 5; done; exit 1
       - run: node scripts/relay-check.mjs https://gaurav262000.github.io/Marauder-s-Map-Harry-Potter-/

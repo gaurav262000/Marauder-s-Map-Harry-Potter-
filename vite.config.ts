@@ -1,13 +1,18 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
+// Free public MQTT relays for groups; set VITE_MQTT_BROKERS to use others. shiftr.io is on
+// port 443, which networks that block unusual ports still let through.
+const BROKERS = (process.env.VITE_MQTT_BROKERS ??=
+  'wss://broker.emqx.io:8084/mqtt,wss://public:public@public.cloud.shiftr.io,wss://test.mosquitto.org:8081/mqtt');
+
 // Every host the page may talk to. Anything else (e.g. an injected script
 // trying to send locations elsewhere) is blocked by the browser.
 const CONNECT = [
   'https://tiles.openfreemap.org',
   'https://nominatim.openstreetmap.org',
   'https://routing.openstreetmap.de',
-  ...(process.env.VITE_MQTT_BROKERS ?? 'wss://broker.hivemq.com:8884/mqtt,wss://broker.emqx.io:8084/mqtt').split(',').map((u) => new URL(u).origin),
+  ...BROKERS.split(',').map((u) => new URL(u).origin),
 ];
 
 const CSP = [

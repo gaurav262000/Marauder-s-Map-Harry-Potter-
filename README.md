@@ -43,7 +43,7 @@ No API keys are needed. Map tiles from [OpenFreeMap](https://openfreemap.org) (O
 - The owner publishes a **signed roster** (who may post, under which name). Every position is signed by its sender and accepted only if the signature matches that member's key in the roster and the current key epoch, so members can't fake each other's positions or names, and old messages can't be replayed after a re-key.
 - Removing a member rotates the group key and re-sends it to everyone else; the removed device can no longer read new positions.
 - Production builds ship a **Content-Security-Policy** that only allows scripts from the site itself and network connections to the map, search, routing and relay hosts.
-- Positions travel through free public MQTT relays (HiveMQ and EMQX, override with `VITE_MQTT_BROKERS`). Topics are derived from hashes and payloads are encrypted, so the relay sees neither names nor places.
+- Positions travel through free public MQTT relays (EMQX, shiftr.io and Mosquitto, override with `VITE_MQTT_BROKERS`). Every message goes to all of them and is re-sent to a relay that reconnects, so a group keeps working while some are down or blocked. Topics are derived from hashes and payloads are encrypted, so the relay sees neither names nor places.
 
 Known limits: the public relays have no access control, so anyone can delete or flood messages (disrupting the group, not reading it), and relay operators see IP addresses and message timing. There are no accounts: identity is per browser, so clearing site data means asking to join again, and if the owner clears theirs the group can no longer approve anyone.
 

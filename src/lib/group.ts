@@ -26,9 +26,9 @@ export interface Roster {
   members: { id: string; name: string; signPub: JsonWebKey }[];
 }
 
-// Free public MQTT relays. Every message goes to all of them, so a group keeps
+// MQTT relays (list in vite.config.ts). Every message goes to all of them, so a group keeps
 // working if one is down and members never end up split across relays.
-const BROKERS: string[] = String(import.meta.env.VITE_MQTT_BROKERS ?? 'wss://broker.hivemq.com:8884/mqtt,wss://broker.emqx.io:8084/mqtt').split(',');
+const BROKERS: string[] = String(import.meta.env.VITE_MQTT_BROKERS).split(',');
 const PREFIX = 'enchanted-atlas/v3';
 const ROSTER = '_roster';
 const enc = new TextEncoder();
