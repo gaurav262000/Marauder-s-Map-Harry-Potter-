@@ -419,6 +419,15 @@ button, input { font: inherit; color: inherit; }
   border-radius: 2px;
 }
 .leave { margin-top: 6px; }
+.safety { font: 600 1rem ui-monospace, 'SFMono-Regular', Menlo, monospace; letter-spacing: 0.08em; color: var(--ink-dark); white-space: nowrap; }
+.request { display: grid; gap: 4px; padding: 10px 0; }
+.req-actions { display: flex; gap: 8px; margin-top: 4px; }
+.req-actions .btn { flex: 1; }
+.approved { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
+.panel .btn.small { width: auto; min-height: 36px; padding: 4px 10px; font-size: 0.92rem; }
+.warn-text { color: var(--wax); }
+.inline-icon { width: 15px; height: 15px; vertical-align: -2px; color: var(--ink-sepia); }
+
 .walker-tag.is-friend { border-color: var(--ink-dark); font-weight: 600; background: rgba(250, 240, 210, 0.96); }
 .where.sharing { color: var(--wax-dark); }
 .where.sharing::before { content: '● '; color: var(--wax); }

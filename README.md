@@ -25,7 +25,7 @@ npm test           # geometry checks (node:test, Node 22+)
 - **The whole world** — pan, zoom, pinch and rotate anywhere; street-level detail everywhere OpenStreetMap has it.
 - **Your footprints** — tap a spot, then **Walk here**: a walking route is fetched and your prints, labelled with your name, walk it. **Appear here** moves you instantly; the target button jumps to your real location.
 - **Wanderers** — at street level, four residents of the parchment stroll along whichever streets are on screen, turning at junctions.
-- **Friends & groups** — start a group, send the invite link (`#g=<code>`), and everyone who joins sees each other live: name tag, footprints, distance, and where each person is heading. Sharing uses the phone's GPS when allowed, and can be stopped at any time.
+- **Friends & groups** — start a group and send the invite link. Opening the link only lets someone *ask* to join; the group owner approves or declines each request (checking a 6-digit safety number shown on both phones). Approved members see each other live: name tag, footprints, distance, and where each person is heading. The owner can remove anyone, which re-keys the group.
 - **Seek any place** — search for any town, street or landmark (press Enter).
 - **The oath** — the map opens only once you write your name, and folds away again from the top bar.
 - Optional ambient sound (off by default), place-name toggle, compass that turns back to north, reduced-motion support.
@@ -34,7 +34,16 @@ npm test           # geometry checks (node:test, Node 22+)
 
 No API keys are needed. Map tiles from [OpenFreeMap](https://openfreemap.org) (OpenMapTiles schema), search from [Nominatim](https://nominatim.org), walking routes from the [FOSSGIS OSRM](https://routing.openstreetmap.de) foot router. Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors. Please respect their usage policies (search runs only on Enter, never as you type).
 
-Group presence travels through free public MQTT relays (HiveMQ and EMQX, override with `VITE_MQTT_BROKERS`). Each message is encrypted on the device with AES-GCM using a key derived from the group code, and the relay topic is derived from the code too, so the relay sees neither names nor places. There are no accounts: anyone with the group code can join, so share it only with people you trust.
+### Group security
+
+- Every device makes its own ECDH (P-256) key pair; the private key never leaves the device (stored in the browser).
+- The owner creates a random AES-256-GCM group key. It is only ever sent sealed to an approved member's public key, so the relay and anyone holding the invite link cannot read it.
+- The invite link carries the owner's key fingerprint; a device accepts a group key (or a "declined" notice) only if it is sealed by that exact key.
+- Join requests show a safety number derived from the requester's public key on both phones, so the owner can confirm a request really comes from the right person before approving.
+- Removing a member rotates the group key and re-sends it to everyone else; the removed device can no longer read new positions.
+- Positions travel through free public MQTT relays (HiveMQ and EMQX, override with `VITE_MQTT_BROKERS`). Topics are derived from hashes, and payloads are encrypted, so the relay sees neither names nor places.
+
+Limits: there are no accounts, so identity is per browser (clearing site data means asking to join again), and approved members are trusted not to forge each other's positions.
 
 Label glyphs for the IM Fell typefaces are pre-generated into `public/glyphs/` by `scripts/build-glyphs.mjs`.
 
