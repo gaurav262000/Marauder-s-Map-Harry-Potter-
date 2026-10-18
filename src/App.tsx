@@ -1,14 +1,17 @@
-import { CircleQuestionMark, FoldVertical, Footprints as FootIcon, LocateFixed, Minus, Plus, Route as RouteIcon, Tag, Volume2, VolumeX, X } from 'lucide-react';
+import { CircleQuestionMark, FoldVertical, Footprints as FootIcon, LocateFixed, Minus, Plus, Route as RouteIcon, Tag, Users, Volume2, VolumeX, X } from 'lucide-react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibre } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { GroupPanel, type GroupState } from './components/GroupPanel.tsx';
 import { HelpDialog } from './components/HelpDialog.tsx';
 import { Intro } from './components/Intro.tsx';
 import { formatCoord, PlaceNote } from './components/PlaceNote.tsx';
 import { SearchBox } from './components/SearchBox.tsx';
 import { useAmbientAudio } from './hooks/useAmbientAudio.ts';
-import type { LngLat } from './lib/geo.ts';
+import { distance, type LngLat } from './lib/geo.ts';
+import { joinGroup, type Group, type Member } from './lib/group.ts';
+import { newGroupCode, normalizeCode } from './lib/groupCrypto.ts';
 import { placeAt, walkingRoute, type Place } from './lib/services.ts';
 import { createFootprints, type Footprints } from './map/footprints.ts';
 import { provideImages } from './map/images.ts';
@@ -19,16 +22,46 @@ const START: LngLat = [-0.12395, 51.53205];
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-function storedName() {
+function load(key: string) {
   try {
-    return localStorage.getItem('atlas-name') ?? '';
+    return localStorage.getItem(key);
   } catch {
-    return '';
+    return null;
   }
 }
+function save(key: string, value: string | null) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    /* private mode: it just won't be remembered */
+  }
+}
+const storedName = () => load('atlas-name') ?? '';
+
+/** Stable per-device id, so friends see one walker per person. */
+const ME_ID = load('atlas-id') ?? crypto.randomUUID();
+save('atlas-id', ME_ID);
+
+const storedGroup = (): GroupState | null => {
+  try {
+    return JSON.parse(load('atlas-group') ?? 'null');
+  } catch {
+    return null;
+  }
+};
+const inviteFromLink = () => {
+  const m = location.hash.match(/[#&]g=([a-z0-9-]+)/i);
+  return m ? normalizeCode(m[1]) : null;
+};
+
+const STALE_MS = 12 * 3600_000; // friends not heard from in 12 h drop off the map
+const PUBLISH_MS = 3000;
+const HEARTBEAT_MS = 30_000;
 
 interface Journey {
   to: string;
+  at: LngLat;
   meters: number;
   onRoads: boolean;
   arrived: boolean;
@@ -47,6 +80,16 @@ export default function App() {
   const [wanderers, setWanderers] = useState(true);
   const [sound, setSound] = useState(false);
   const [zoom, setZoom] = useState(16);
+  const [group, setGroup] = useState<GroupState | null>(storedGroup);
+  const [invite, setInvite] = useState(inviteFromLink);
+  const [members, setMembers] = useState<Record<string, Member>>({});
+  const [online, setOnline] = useState(false);
+  const [panel, setPanel] = useState(false);
+  const groupRef = useRef<Group | null>(null);
+  const shownFriends = useRef(new Set<string>());
+  const live = useRef({ name, journey: null as Journey | null, fix: null as LngLat | null });
+  live.current.name = name;
+  live.current.journey = journey;
   const container = useRef<HTMLDivElement>(null);
   const compass = useRef<HTMLButtonElement>(null);
   const coordRef = useRef<HTMLSpanElement>(null);
@@ -117,6 +160,118 @@ export default function App() {
     };
   }, [map, noteAt]);
 
+  // ——— Group: join the relay for the current code ———
+  const code = group?.code;
+  useEffect(() => {
+    save('atlas-group', group && JSON.stringify(group));
+  }, [group]);
+
+  useEffect(() => {
+    if (!map || !code) return;
+    let cancelled = false;
+    joinGroup(code, ME_ID, {
+      onMember: (m) => setMembers((all) => ((all[m.id]?.t ?? 0) >= m.t ? all : { ...all, [m.id]: m })),
+      onGone: (id) =>
+        setMembers((all) => {
+          const rest = { ...all };
+          delete rest[id];
+          return rest;
+        }),
+      onStatus: setOnline,
+    })
+      .then((g) => (cancelled ? g.leave() : (groupRef.current = g)))
+      .catch(() => setMessage('Could not open the group. Check your connection and try again.'));
+    return () => {
+      cancelled = true;
+      groupRef.current?.leave();
+      groupRef.current = null;
+      setMembers({});
+      setOnline(false);
+    };
+  }, [map, code]);
+
+  // Friends become walkers on the map, with a dashed line to where they are going.
+  const visibleMembers = Object.values(members).filter((m) => Date.now() - m.t < STALE_MS);
+  useEffect(() => {
+    if (!map || !fp.current) return;
+    const ids = new Set<string>();
+    for (const m of Object.values(members)) {
+      if (Date.now() - m.t > STALE_MS) continue;
+      ids.add(m.id);
+      fp.current.setFriend(m.id, m.dest ? `${m.name} → ${m.dest.name}` : m.name, m.at);
+    }
+    for (const id of shownFriends.current) if (!ids.has(id)) fp.current.removeFriend(id);
+    shownFriends.current = ids;
+    (map.getSource('friends') as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: Object.values(members)
+        .filter((m) => m.dest && ids.has(m.id))
+        .flatMap((m) => [
+          { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [m.at, m.dest!.at] } },
+          { type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: m.dest!.at } },
+        ]),
+    });
+  }, [map, members]);
+
+  // While sharing: follow the device's GPS and tell the group where you are.
+  const sharing = !!group?.sharing;
+  useEffect(() => {
+    if (!map || !sharing) return;
+    const state = live.current;
+    let first = true;
+    const watch = navigator.geolocation?.watchPosition(
+      (pos) => {
+        const at: LngLat = [pos.coords.longitude, pos.coords.latitude];
+        state.fix = at;
+        if (first) {
+          first = false;
+          fp.current?.setYou(at);
+          map.flyTo({ center: at, zoom: Math.max(map.getZoom(), 16), duration: reducedMotion() ? 0 : 1600 });
+        } else fp.current?.glideYou(at);
+      },
+      () => setMessage('Location is off, so friends see where you stand on the map. Allow location access to share where you really are.'),
+      { enableHighAccuracy: true, maximumAge: 5000 },
+    );
+    let sent: { at: LngLat; dest: string; t: number } | null = null;
+    const tick = async () => {
+      const g = groupRef.current;
+      if (!g || !fp.current) return;
+      // With GPS on, friends see where you really are; a planned walk only sets where you are heading.
+      const at = state.fix ?? fp.current.you();
+      const j = state.journey;
+      const heading = j && (state.fix ? distance(state.fix, j.at) > 40 : !j.arrived);
+      const dest = heading ? { name: j.to, at: j.at } : null;
+      const now = Date.now();
+      if (sent && distance(sent.at, at) < 3 && sent.dest === (dest?.name ?? '') && now - sent.t < HEARTBEAT_MS) return;
+      if (await g.publish({ id: ME_ID, name: state.name || 'A Wanderer', at, dest, live: !!state.fix, t: now })) sent = { at, dest: dest?.name ?? '', t: now };
+    };
+    void tick();
+    const timer = setInterval(tick, PUBLISH_MS);
+    return () => {
+      clearInterval(timer);
+      if (watch !== undefined) navigator.geolocation.clearWatch(watch);
+      state.fix = null;
+    };
+  }, [map, sharing]);
+
+  const enterGroup = (c: string) => {
+    setGroup({ code: normalizeCode(c), sharing: true });
+    setInvite(null);
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  };
+  const toggleShare = () => {
+    if (group?.sharing) groupRef.current?.hide();
+    setGroup((g) => g && { ...g, sharing: !g.sharing });
+  };
+  const leaveGroup = () => {
+    groupRef.current?.hide();
+    setGroup(null);
+  };
+  const focusMember = (m: Member) => {
+    map?.flyTo({ center: m.at, zoom: Math.max(map.getZoom(), 16), duration: reducedMotion() ? 0 : 1400 });
+    if (window.matchMedia('(max-width: 760px)').matches) setPanel(false);
+  };
+
   const showRoute = (coords: LngLat[]) =>
     (map?.getSource('route') as GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
@@ -138,7 +293,7 @@ export default function App() {
     const walk = await walkingRoute(from, to);
     showRoute(walk.coords);
     fp.current.walk(walk.coords);
-    setJourney({ to: label, meters: walk.meters, onRoads: walk.onRoads, arrived: false });
+    setJourney({ to: label, at: to, meters: walk.meters, onRoads: walk.onRoads, arrived: false });
     const b = new maplibregl.LngLatBounds(walk.coords[0], walk.coords[0]);
     walk.coords.forEach((c) => b.extend(c));
     map.fitBounds(b, { padding: 90, maxZoom: 17.5, duration: reducedMotion() ? 0 : 1200 });
@@ -180,6 +335,7 @@ export default function App() {
     }
     fp.current?.setYou(fp.current.you(), n);
     setOpened(true);
+    if (invite && invite !== group?.code) setPanel(true);
     rustle();
     // the map was sized while hidden behind the intro
     requestAnimationFrame(() => map?.resize());
@@ -195,6 +351,10 @@ export default function App() {
         <div className="top-actions">
           <button className="icon-btn" onClick={() => setSound((s) => !s)} aria-pressed={sound} aria-label={sound ? 'Mute ambient sound' : 'Play ambient sound'} title={sound ? 'Mute' : 'Ambient sound'}>
             {sound ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
+          </button>
+          <button className="icon-btn group-btn" onClick={() => setPanel((v) => !v)} aria-pressed={panel} aria-label={`Your group${visibleMembers.length ? `, ${visibleMembers.length} on the map` : ''}`} title="Your group">
+            <Users aria-hidden />
+            {visibleMembers.length > 0 && <span className="badge">{visibleMembers.length}</span>}
           </button>
           <button className="icon-btn" onClick={() => helpRef.current?.showModal()} aria-label="How to use the map" title="How to use the map">
             <CircleQuestionMark aria-hidden />
@@ -283,10 +443,29 @@ export default function App() {
             <span ref={coordRef}>{formatCoord(START)}</span>
           </span>
           <span className="zoom">zoom {zoom.toFixed(1)}</span>
-          {zoom < 15 && <span className="where">Lean closer to see the wanderers</span>}
+          {sharing ? (
+            <span className="where sharing">Sharing your location with your group</span>
+          ) : (
+            zoom < 15 && <span className="where">Lean closer to see the wanderers</span>
+          )}
         </footer>
       </main>
 
+      {panel && opened && (
+        <GroupPanel
+          group={group}
+          invite={invite}
+          online={online}
+          members={visibleMembers}
+          youAt={fp.current?.you() ?? START}
+          onCreate={() => enterGroup(newGroupCode())}
+          onJoin={enterGroup}
+          onToggleShare={toggleShare}
+          onLeave={leaveGroup}
+          onFocus={focusMember}
+          onClose={() => setPanel(false)}
+        />
+      )}
       {!opened && <Intro name={name} onOpen={open} />}
       <HelpDialog ref={helpRef} />
 

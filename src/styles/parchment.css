@@ -335,6 +335,94 @@ button, input { font: inherit; color: inherit; }
 .statusbar span { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .where { font-family: var(--font-fell); font-style: italic; }
 
+/* ——— Group panel ——— */
+.group-btn { position: relative; }
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--wax);
+  color: var(--parchment-light);
+  font: 600 0.72rem/18px var(--font-serif);
+  text-align: center;
+}
+.panel {
+  position: absolute;
+  top: 66px;
+  right: 30px;
+  width: min(360px, calc(100vw - 60px));
+  max-height: calc(100% - 100px);
+  overflow: auto;
+  padding: 18px 20px 20px;
+  border: var(--border-ink);
+  border-radius: 2px;
+  box-shadow: var(--shadow), 0 0 0 4px rgba(245, 233, 201, 0.35);
+  z-index: 6;
+  color: var(--ink-dark);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255, 252, 235, 0.8), transparent 55%),
+    radial-gradient(circle at 90% 95%, rgba(160, 115, 55, 0.22), transparent 50%),
+    var(--parchment-light);
+  animation: note-emerge 0.35s ease-out both;
+  display: grid;
+  gap: 10px;
+}
+.panel-grip { display: none; }
+.panel-close { position: absolute; top: 10px; right: 10px; }
+.panel h2 { display: flex; align-items: center; gap: 8px; margin: 0 40px 4px 0; font: 400 1.4rem/1.1 var(--font-display); }
+.panel h2 svg { width: 20px; height: 20px; color: var(--wax); }
+.panel h3 { margin: 8px 0 0; font: 400 1.05rem var(--font-display); color: var(--ink-sepia); letter-spacing: 0.06em; }
+.panel .btn { width: 100%; }
+.invite { margin: 0; font: italic 1.05rem/1.4 var(--font-fell); color: var(--wax-dark); }
+.join { display: grid; gap: 8px; }
+.join label { font: 1rem var(--font-fell); }
+.join input {
+  min-height: 42px;
+  padding: 6px 10px;
+  border: var(--border-ink);
+  border-radius: 3px;
+  background: rgba(255, 252, 235, 0.7);
+  font: 1.05rem/1 ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  letter-spacing: 0.04em;
+}
+.or { margin: 0; text-align: center; font: italic 0.95rem var(--font-fell); color: var(--ink-sepia); }
+.fine { margin: 0; font-size: 0.88rem; line-height: 1.45; color: var(--ink-sepia); }
+.code-row { display: grid; gap: 8px; }
+.code-row code {
+  padding: 8px 10px;
+  border: 1px dashed var(--ink-sepia);
+  border-radius: 3px;
+  font: 1.05rem ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  letter-spacing: 0.06em;
+  text-align: center;
+  user-select: all;
+}
+.share-toggle[aria-pressed='true'] { background: var(--ink); border-color: var(--ink-dark); color: var(--parchment-light); }
+.share-toggle[aria-pressed='true'] svg { color: #f0b37e; }
+.members { list-style: none; margin: 0; padding: 0; }
+.members li + li { border-top: 1px dashed rgba(69, 41, 15, 0.25); }
+.member { display: grid; gap: 2px; width: 100%; padding: 8px 2px; border: 0; background: none; text-align: left; cursor: pointer; }
+.member:hover .m-name { color: var(--wax); }
+.m-name { display: flex; align-items: center; gap: 8px; font: 1.08rem var(--font-fell); }
+.m-where { font-size: 0.88rem; color: var(--ink-sepia); }
+.tag {
+  font-variant: small-caps;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: var(--wax);
+  border: 1px solid currentColor;
+  padding: 0 5px;
+  border-radius: 2px;
+}
+.leave { margin-top: 6px; }
+.walker-tag.is-friend { border-color: var(--ink-dark); font-weight: 600; background: rgba(250, 240, 210, 0.96); }
+.where.sharing { color: var(--wax-dark); }
+.where.sharing::before { content: '● '; color: var(--wax); }
+
 /* ——— Intro: the closed parchment ——— */
 .intro {
   position: fixed;
@@ -428,4 +516,18 @@ button, input { font: inherit; color: inherit; }
   .coords { display: none; }
   .statusbar > .zoom { padding-left: 0; border-left: 0; }
   .frame-text { font-size: 0.65rem; }
+  .panel {
+    inset: auto 0 0 0;
+    width: auto;
+    max-height: 70%;
+    padding: 10px 18px calc(18px + env(safe-area-inset-bottom));
+    border-radius: 12px 12px 0 0;
+    border-bottom: 0;
+    position: fixed;
+    box-shadow: 0 -10px 30px rgba(20, 10, 2, 0.45);
+    animation-name: sheet-up;
+  }
+  .panel-grip { display: block; width: 44px; height: 4px; border-radius: 2px; background: rgba(69, 41, 15, 0.35); margin: 0 auto 4px; }
+  .panel-close { top: 14px; }
 }
+@keyframes sheet-up { from { transform: translateY(40%); opacity: 0; } }

@@ -24,6 +24,8 @@ interface Walker {
   prints: Print[];
   marker: Marker;
   lineIdx: number;
+  /** moving to a reported position (friends, GPS), not walking a route */
+  glide: boolean;
 }
 
 /** Fictional residents who wander whatever streets are on screen. */
@@ -35,12 +37,19 @@ export interface Footprints {
   walk(coords: LngLat[]): void;
   stop(): void;
   setWanderers(on: boolean): void;
+  /** Smoothly moves you to a new GPS fix (ignored while walking a route). */
+  glideYou(at: LngLat): void;
+  setFriend(id: string, label: string, at: LngLat): void;
+  removeFriend(id: string): void;
   destroy(): void;
 }
 
-function tag(name: string, you: boolean) {
+const GLIDE_S = 1.5;
+const TELEPORT_M = 3000;
+
+function tag(name: string, kind: 'you' | 'friend' | 'wanderer') {
   const el = document.createElement('div');
-  el.className = `walker-tag${you ? ' is-you' : ''}`;
+  el.className = `walker-tag is-${kind}`;
   el.textContent = name;
   el.setAttribute('aria-hidden', 'true');
   return el;
@@ -55,23 +64,26 @@ export function createFootprints(
   map: MapLibre,
   { start, name, reducedMotion, onArrive }: { start: LngLat; name: string; reducedMotion: boolean; onArrive: () => void },
 ): Footprints {
-  const make = (n: string, you: boolean, at: LngLat): Walker => ({
+  const make = (n: string, kind: 'you' | 'friend' | 'wanderer', at: LngLat): Walker => ({
     name: n,
-    you,
+    you: kind === 'you',
     t: null,
     s: 0,
-    speed: you ? 110 : 30 + Math.random() * 20,
+    speed: kind === 'you' ? 110 : 30 + Math.random() * 20,
     sinceLast: 0,
     left: false,
     prints: [],
-    marker: new Marker({ element: tag(n, you), anchor: 'bottom', offset: [0, -10] }).setLngLat(at),
+    marker: new Marker({ element: tag(n, kind), anchor: 'bottom', offset: [0, -10] }).setLngLat(at),
     lineIdx: -1,
+    glide: false,
   });
 
   let here: LngLat = start;
-  const me = make(name, true, start);
+  const me = make(name, 'you', start);
   me.marker.addTo(map);
-  const wanderers = WANDERERS.map((n) => make(n, false, start));
+  const wanderers = WANDERERS.map((n) => make(n, 'wanderer', start));
+  const friends = new Map<string, Walker>();
+  const all = () => [me, ...wanderers, ...friends.values()];
   let wandering = !reducedMotion;
   let roads: LngLat[][] = [];
   let dirty = true;
@@ -88,7 +100,7 @@ export function createFootprints(
   const flush = () => {
     if (!dirty) return;
     dirty = false;
-    const features = [me, ...wanderers].flatMap((w) =>
+    const features = all().flatMap((w) =>
       w.prints.map((p, i) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: p.at },
@@ -178,6 +190,13 @@ export function createFootprints(
     w.s += move;
     w.sinceLast += move;
     if (w.s >= w.t.length) {
+      if (w.glide) {
+        w.marker.setLngLat(w.t.coords[w.t.coords.length - 1]);
+        if (w.you) here = w.t.coords[w.t.coords.length - 1];
+        w.t = null;
+        w.glide = false;
+        return;
+      }
       if (w.you) {
         w.s = w.t.length;
         const end = along(w.t, w.s);
@@ -207,10 +226,30 @@ export function createFootprints(
     const m = mpp();
     step(me, dt, m);
     if (wandering) for (const w of wanderers) step(w, dt, m);
+    for (const w of friends.values()) step(w, dt, m);
     flush();
     raf = requestAnimationFrame(frame);
   };
   raf = requestAnimationFrame(frame);
+
+  /** Walk w from where it is to `to` in GLIDE_S seconds, planting prints. */
+  const glide = (w: Walker, to: LngLat) => {
+    const from = w.marker.getLngLat().toArray() as LngLat;
+    const d = distance(from, to);
+    if (d < 1) return;
+    if (d > TELEPORT_M || reducedMotion) {
+      w.t = null;
+      w.marker.setLngLat(to);
+      if (w.you) here = to;
+      w.prints = [];
+      dirty = true;
+      return;
+    }
+    w.t = track([from, to]);
+    w.s = 0;
+    w.glide = true;
+    w.speed = d / mpp() / GLIDE_S;
+  };
 
   return {
     you: () => here,
@@ -244,10 +283,28 @@ export function createFootprints(
       wandering = on && !reducedMotion;
       syncWanderers();
     },
+    glideYou(at) {
+      if (me.t && !me.glide) return;
+      glide(me, at);
+    },
+    setFriend(id, label, at) {
+      let w = friends.get(id);
+      if (!w) {
+        w = make(label, 'friend', at);
+        w.marker.addTo(map);
+        friends.set(id, w);
+      } else glide(w, at);
+      if (w.name !== label) w.marker.getElement().textContent = w.name = label;
+    },
+    removeFriend(id) {
+      friends.get(id)?.marker.remove();
+      friends.delete(id);
+      dirty = true;
+    },
     destroy() {
       cancelAnimationFrame(raf);
       map.off('moveend', onMoveEnd);
-      [me, ...wanderers].forEach((w) => w.marker.remove());
+      all().forEach((w) => w.marker.remove());
     },
   };
 }

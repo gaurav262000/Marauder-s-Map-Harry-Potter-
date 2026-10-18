@@ -33,6 +33,7 @@ export function parchmentStyle(glyphs: string): StyleSpecification {
       omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' },
       prints: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
       route: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+      friends: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     },
     layers: [
       // Paper shows through: the canvas is transparent, the parchment is CSS.
@@ -56,6 +57,10 @@ export function parchmentStyle(glyphs: string): StyleSpecification {
       { id: 'major-casing', type: 'line', source: 'omt', 'source-layer': 'transportation', filter: ['in', ['get', 'class'], ['literal', MAJOR_CLASSES]], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': INK, 'line-width': casing(MAJOR) } },
       { id: 'minor-floor', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 13.5, filter: ['in', ['get', 'class'], ['literal', MINOR_CLASSES]], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': PAPER, 'line-width': width(MINOR) } },
       { id: 'major-floor', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 11, filter: ['in', ['get', 'class'], ['literal', MAJOR_CLASSES]], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': PAPER, 'line-width': width(MAJOR) } },
+
+      // Where friends say they are heading.
+      { id: 'friend-route', type: 'line', source: 'friends', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round' }, paint: { 'line-color': INK, 'line-width': 1.6, 'line-opacity': 0.6, 'line-dasharray': [2, 3] } },
+      { id: 'friend-dest', type: 'circle', source: 'friends', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': PAPER, 'circle-stroke-color': INK, 'circle-stroke-width': 1.6 } },
 
       // The walked route and its footprints.
       { id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#7a1d15', 'line-width': 2.6, 'line-opacity': 0.75, 'line-dasharray': [1, 2] } },

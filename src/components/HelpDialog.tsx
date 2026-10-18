@@ -11,6 +11,7 @@ export function HelpDialog({ ref }: { ref: Ref<HTMLDialogElement> }) {
           <li><b>Find</b> — type any town, street or landmark in “Seek any place…” and press Enter.</li>
           <li><b>Walk</b> — tap anywhere, then “Walk here”. Your footprints follow real footpaths from where you stand.</li>
           <li><b>Appear</b> — “Appear here” moves you without walking; the target button finds where you really are.</li>
+          <li><b>Friends</b> — the people button starts or joins a group. Send the invite link; everyone who joins and shares appears on the map with their name, footprints and where they are heading. Stop sharing or leave the group any time.</li>
           <li><b>Wanderers</b> — zoom in to street level to see the residents of the parchment walking the streets.</li>
         </ul>
         <p className="help-fine">Map data © OpenStreetMap contributors, tiles by OpenFreeMap, search by Nominatim, walking routes by FOSSGIS OSRM.</p>
