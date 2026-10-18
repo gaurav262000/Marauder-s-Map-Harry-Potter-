@@ -30,7 +30,9 @@ jobs:
       - name: Download from Overpass
         run: |
           Q="[out:xml][timeout:180];(nwr[highway]($BBOX);nwr[building]($BBOX);nwr[leisure]($BBOX);nwr[landuse]($BBOX);nwr[natural]($BBOX);nwr[waterway]($BBOX);nwr[railway]($BBOX);node[place]($BBOX);nwr[tourism]($BBOX);nwr[historic]($BBOX);nwr[amenity][name]($BBOX););(._;>;);out body;"
-          curl -sSf --retry 3 --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter -o extract.osm
+          UA="EnchantedAtlas-demo/1.0 (+https://github.com/${{ github.repository }})"
+          curl -sSf --retry 3 -A "$UA" --data-urlencode "data=$Q" https://overpass-api.de/api/interpreter -o extract.osm \
+            || curl -sSf --retry 3 -A "$UA" --data-urlencode "data=$Q" https://overpass.kumi.systems/api/interpreter -o extract.osm
           ls -la extract.osm
       - name: Convert to PBF
         run: |
