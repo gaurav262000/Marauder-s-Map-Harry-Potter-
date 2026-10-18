@@ -4,6 +4,7 @@ import { along, distance, metersPerPixel, offset, track, type LngLat, type Track
 const PRINTS = 12; // prints kept behind each walker
 const STRIDE_PX = 19; // gap between prints on screen
 const SIDE_PX = 5; // left/right foot offset
+const MAX_WALK_S = 60; // a longer walk speeds up to finish in this time, at any zoom
 const WANDER_MIN_ZOOM = 15;
 const ROAD_LAYERS = ['minor-casing', 'major-casing', 'path'];
 
@@ -197,7 +198,7 @@ export function createFootprints(
   // ——— Animation loop ———
   const step = (w: Walker, dt: number, m: number) => {
     if (!w.t) return;
-    const move = w.speed * m * dt;
+    const move = Math.max(w.speed * m, w.you && !w.glide ? w.t.length / MAX_WALK_S : 0) * dt;
     w.s += move;
     w.sinceLast += move;
     if (w.s >= w.t.length) {
