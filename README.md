@@ -18,12 +18,7 @@ npm test           # geometry checks (node:test, Node 22+)
 
 ## Put it online (GitHub Pages)
 
-`.github/workflows/pages.yml` builds and deploys on every push to `main` (and to the development branch).
-
-1. In the repository on GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. Push, or run the workflow from the **Actions** tab. The site appears at `https://<user>.github.io/<repo>/`.
-
-If a deploy from a non-default branch is refused, allow that branch under **Settings → Environments → github-pages**, or merge into `main`.
+`.github/workflows/pages.yml` builds the site on every push to `main` (and to the development branch) and publishes it to the `gh-pages` branch. If the site does not appear at `https://<user>.github.io/<repo>/`, set **Settings → Pages → Source: Deploy from a branch → `gh-pages` / root**.
 
 ## What it does
 
