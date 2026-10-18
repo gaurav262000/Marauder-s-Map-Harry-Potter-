@@ -1,7 +1,7 @@
 name: Relay check
 on:
   push:
-    paths: [.github/workflows/relay-check.yml, scripts/relay-check.mjs]
+    paths: [.github/workflows/relay-check.yml, scripts/relay-check.mjs, scripts/relay-probe.mjs]
   workflow_dispatch:
 jobs:
   check:
@@ -10,5 +10,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: npm i --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
+      - run: npm ci && npm i --no-save playwright@1.56.1 && npx playwright install --with-deps chromium
+      - run: >-
+          node scripts/relay-probe.mjs
+          wss://broker.hivemq.com:8884/mqtt wss://broker.emqx.io:8084/mqtt wss://broker-cn.emqx.io:8084/mqtt
+          wss://test.mosquitto.org:8081/mqtt wss://mqtt.eclipseprojects.io/mqtt wss://public:public@public.cloud.shiftr.io
+          wss://broker.hivemq.com:8884/mqtt
       - run: node scripts/relay-check.mjs https://gaurav262000.github.io/Marauder-s-Map-Harry-Potter-/

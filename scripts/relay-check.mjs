@@ -40,7 +40,6 @@ try {
   log('invite', link.replace(/#.*/, '#…'));
 
   await enter(B, 'Friend', link);
-  await B.click('[aria-label^="Your group"]').catch(() => {});
   await B.click('text=Ask to join');
   await B.waitForSelector('text=Your request has been sent.', { timeout: 30_000 });
   log('friend request sent');

@@ -108,7 +108,11 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
     mqtt.connect(url, { clientId: `atlas-${Math.random().toString(36).slice(2, 12)}`, reconnectPeriod: 5000, connectTimeout: 10_000 }),
   );
   const status = () => h.onStatus(clients.some((c) => c.connected));
+  // Everything this device keeps on the relays, re-sent to any relay that (re)connects later,
+  // so friends who can only reach that relay still get the key, roster and positions.
+  const kept = new Map<string, Uint8Array | string>();
   const send = (topic: string, payload: Uint8Array | string) => {
+    kept.set(topic, payload);
     const up = clients.filter((c) => c.connected);
     for (const c of up) c.publish(topic, payload as Buffer, { retain: true, qos: 1 });
     return up.length > 0;
@@ -175,6 +179,7 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
       if (presenceBase) c.subscribe(`${presenceBase}/+`);
       if (link.isOwner) c.subscribe(`${lobbyBase}/+`);
       else c.subscribe(`${inboxBase}/${me.id}`);
+      for (const [topic, payload] of kept) c.publish(topic, payload as Buffer, { retain: true, qos: 1 });
       status();
     });
     c.on('close', status);
