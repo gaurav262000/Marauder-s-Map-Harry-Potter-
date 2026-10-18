@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
 
 concurrency:
   group: pages
@@ -34,10 +33,3 @@ jobs:
           git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Deploy ${GITHUB_SHA}"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
-      - name: Turn on GitHub Pages for gh-pages (no-op if already on)
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/${{ github.repository }}/pages" \
-            || gh api -X POST "repos/${{ github.repository }}/pages" -f build_type=legacy -f "source[branch]=gh-pages" -f "source[path]=/"
