@@ -25,7 +25,7 @@ npm test           # geometry checks (node:test, Node 22+)
 - **The whole world** — pan, zoom, pinch and rotate anywhere; street-level detail everywhere OpenStreetMap has it.
 - **Your footprints** — tap a spot, then **Walk here**: a walking route is fetched and your prints, labelled with your name, walk it. **Appear here** moves you instantly; the target button jumps to your real location.
 - **Wanderers** — at street level, four residents of the parchment stroll along whichever streets are on screen, turning at junctions.
-- **Friends & groups** — start a group and send the invite link. Opening the link only lets someone *ask* to join; the group owner approves or declines each request (checking a 6-digit safety number shown on both phones). Approved members see each other live: name tag, footprints, distance, and where each person is heading. The owner can remove anyone, which re-keys the group.
+- **Friends & groups** — start a group and send the invite link. Opening the link only lets someone *ask* to join; the group owner approves or declines each request (checking a 20-digit safety number shown on both phones). Approved members see each other live: name tag, footprints, distance, and where each person is heading. The owner can remove anyone, which re-keys the group.
 - **Seek any place** — search for any town, street or landmark (press Enter).
 - **The oath** — the map opens only once you write your name, and folds away again from the top bar.
 - Optional ambient sound (off by default), place-name toggle, compass that turns back to north, reduced-motion support.
@@ -59,6 +59,7 @@ src/
   lib/group.ts        group relay (MQTT) and member validation
   lib/groupCrypto.ts  group code, key/topic derivation, AES-GCM (+ groupCrypto.test.ts)
   components/         Intro, SearchBox, PlaceNote, GroupPanel, HelpDialog
-  hooks/              useAmbientAudio
+  hooks/              useGroup (group state, approvals, re-keying), useAmbientAudio
+  lib/keystore.ts     non-extractable device keys in IndexedDB
   styles/parchment.css
 ```
