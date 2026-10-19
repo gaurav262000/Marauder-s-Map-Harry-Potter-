@@ -253,8 +253,21 @@ button, input { font: inherit; color: inherit; }
   from { transform: rotate(-7deg) scaleY(0.92); }
   to { transform: rotate(6deg) scaleY(1.05); }
 }
+/* On the move the ribbon catches the wind: it leans back from the way it is going and flaps faster. */
+.walker-tag.is-moving > span { animation: wind 0.55s ease-in-out var(--phase) infinite alternate; }
+.walker-tag.is-moving::before,
+.walker-tag.is-moving::after { animation: wind-curl 0.45s ease-in-out var(--phase) infinite alternate; }
+.walker-tag.is-moving::after { animation-direction: alternate-reverse; }
+@keyframes wind {
+  from { transform: perspective(120px) skewX(calc(var(--lean, 0) * -16deg)) rotateY(-14deg) skewY(-3deg); }
+  to { transform: perspective(120px) skewX(calc(var(--lean, 0) * -10deg)) rotateY(14deg) skewY(3deg); }
+}
+@keyframes wind-curl {
+  from { transform: translateX(calc(var(--lean, 0) * -3px)) rotate(-18deg) scaleY(0.82); }
+  to { transform: translateX(calc(var(--lean, 0) * -3px)) rotate(16deg) scaleY(1.1); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .walker-tag > span, .walker-tag::before, .walker-tag::after { animation: none; }
+  .walker-tag > span, .walker-tag::before, .walker-tag::after { animation: none !important; }
 }
 /* over water the tag rides the broom: lifted and bobbing (`translate` composes with the marker's own transform) */
 .walker-tag.is-flying { animation: fly 0.7s ease-in-out infinite alternate; }

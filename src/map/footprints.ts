@@ -29,6 +29,8 @@ interface Walker {
   lineIdx: number;
   /** moving to a reported position (friends, GPS), not walking a route */
   glide: boolean;
+  /** screen-space heading last given to the ribbon, so it streams behind (-1 left … 1 right) */
+  lean: number | null;
 }
 
 /** Fictional residents who wander whatever streets are on screen. */
@@ -84,6 +86,7 @@ export function createFootprints(
     marker: new Marker({ element: tag(n, kind), anchor: 'bottom', offset: [0, -10] }).setLngLat(at),
     lineIdx: -1,
     glide: false,
+    lean: null,
   });
 
   let here: LngLat = start;
@@ -235,6 +238,16 @@ export function createFootprints(
     if (w.you) here = p.at;
   };
 
+  /** While a walker moves, its ribbon streams in the wind, trailing away from where it is heading. */
+  const wind = (w: Walker) => {
+    const lean = w.t ? Math.round(Math.sin(((along(w.t, w.s).bearing - map.getBearing()) * Math.PI) / 180) * 4) / 4 : null;
+    if (lean === w.lean) return;
+    const el = w.marker.getElement();
+    el.classList.toggle('is-moving', lean !== null);
+    if (lean !== null) el.style.setProperty('--lean', String(lean));
+    w.lean = lean;
+  };
+
   let raf = 0;
   let last = performance.now();
   const frame = (now: number) => {
@@ -244,6 +257,7 @@ export function createFootprints(
     step(me, dt, m);
     if (wandering) for (const w of wanderers) step(w, dt, m);
     for (const w of friends.values()) step(w, dt, m);
+    for (const w of all()) wind(w);
     flush();
     raf = requestAnimationFrame(frame);
   };
