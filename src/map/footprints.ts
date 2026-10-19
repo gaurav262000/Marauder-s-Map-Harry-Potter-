@@ -50,10 +50,15 @@ export interface Footprints {
 const GLIDE_S = 1.5;
 const TELEPORT_M = 3000;
 
+/** The name is written on a ribbon: the span is its band, the tag's ::before/::after its curled ends. */
+const label = (el: HTMLElement, name: string) => void (el.firstElementChild!.textContent = name);
+
 function tag(name: string, kind: 'you' | 'friend' | 'wanderer') {
   const el = document.createElement('div');
   el.className = `walker-tag is-${kind}`;
-  el.textContent = name;
+  el.style.setProperty('--phase', `${-Math.random() * 3}s`); // ribbons flutter out of step
+  el.append(document.createElement('span'));
+  label(el, name);
   el.setAttribute('aria-hidden', 'true');
   return el;
 }
@@ -270,7 +275,7 @@ export function createFootprints(
       me.t = null;
       here = at;
       me.marker.setLngLat(at);
-      if (n) me.marker.getElement().textContent = n;
+      if (n) label(me.marker.getElement(), n);
       me.marker.getElement().classList.remove('is-flying');
       me.prints = [];
       dirty = true;
@@ -301,14 +306,14 @@ export function createFootprints(
       if (me.t && !me.glide) return;
       glide(me, at);
     },
-    setFriend(id, label, at) {
+    setFriend(id, name, at) {
       let w = friends.get(id);
       if (!w) {
-        w = make(label, 'friend', at);
+        w = make(name, 'friend', at);
         w.marker.addTo(map);
         friends.set(id, w);
       } else glide(w, at);
-      if (w.name !== label) w.marker.getElement().textContent = w.name = label;
+      if (w.name !== name) label(w.marker.getElement(), (w.name = name));
     },
     removeFriend(id) {
       friends.get(id)?.marker.remove();

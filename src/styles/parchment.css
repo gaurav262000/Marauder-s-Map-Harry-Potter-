@@ -210,22 +210,57 @@ button, input { font: inherit; color: inherit; }
 .maplibregl-ctrl-attrib a { color: var(--ink); }
 .maplibregl-ctrl-bottom-right { bottom: 18px; right: 10px; }
 
+/* Names ride on little parchment ribbons: a band with rolled-up ends, fluttering. */
 .walker-tag {
-  padding: 1px 7px 2px;
-  border: 1px solid var(--ink-sepia);
-  border-radius: 2px;
-  background: rgba(245, 233, 201, 0.92);
+  --edge: var(--ink-sepia);
+  --band: linear-gradient(180deg, #f8edd2, #e6d1a2);
+  --roll: linear-gradient(90deg, #a9864c, #e2c995 55%, #9c7a43);
+  padding: 0 9px;
   font: italic 0.85rem/1.2 var(--font-fell);
   color: var(--ink-dark);
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 1px 3px rgba(40, 20, 5, 0.25);
+  filter: drop-shadow(0 1.5px 1.5px rgba(40, 20, 5, 0.35));
+}
+.walker-tag > span {
+  position: relative;
+  z-index: 1;
+  display: block;
+  padding: 2px 9px 3px;
+  border-block: 1px solid var(--edge);
+  background: var(--band);
+  animation: flutter 2.8s ease-in-out var(--phase) infinite alternate;
+}
+.walker-tag::before,
+.walker-tag::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  bottom: -5px;
+  width: 15px;
+  border: 1px solid var(--edge);
+  border-radius: 50% / 18%;
+  background: var(--roll);
+  animation: curl 2.8s ease-in-out var(--phase) infinite alternate;
+}
+.walker-tag::before { left: 0; transform-origin: 100% 30%; }
+.walker-tag::after { right: 0; transform-origin: 0 30%; animation-direction: alternate-reverse; }
+@keyframes flutter {
+  from { transform: perspective(120px) rotateY(-7deg) skewY(-1.5deg); }
+  to { transform: perspective(120px) rotateY(7deg) skewY(1.5deg); }
+}
+@keyframes curl {
+  from { transform: rotate(-7deg) scaleY(0.92); }
+  to { transform: rotate(6deg) scaleY(1.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .walker-tag > span, .walker-tag::before, .walker-tag::after { animation: none; }
 }
 /* over water the tag rides the broom: lifted and bobbing (`translate` composes with the marker's own transform) */
 .walker-tag.is-flying { animation: fly 0.7s ease-in-out infinite alternate; }
 @keyframes fly { from { translate: 0 -22px; } to { translate: 0 -30px; } }
 @media (prefers-reduced-motion: reduce) { .walker-tag.is-flying { animation: none; translate: 0 -26px; } }
-.walker-tag.is-you { border-color: var(--wax); color: var(--wax-dark); font-size: 0.95rem; box-shadow: 0 1px 4px rgba(122, 29, 21, 0.35); }
+.walker-tag.is-you { --edge: var(--wax); color: var(--wax-dark); font-size: 0.95rem; }
 
 /* Popup note */
 .place-popup .maplibregl-popup-content { padding: 0; background: none; box-shadow: none; }
@@ -433,7 +468,7 @@ button, input { font: inherit; color: inherit; }
 .warn-text { color: var(--wax); }
 .inline-icon { width: 15px; height: 15px; vertical-align: -2px; color: var(--ink-sepia); }
 
-.walker-tag.is-friend { border-color: var(--ink-dark); font-weight: 600; background: rgba(250, 240, 210, 0.96); }
+.walker-tag.is-friend { --edge: var(--ink-dark); font-weight: 600; }
 .where.sharing { color: var(--wax-dark); }
 .where.sharing::before { content: '● '; color: var(--wax); }
 
