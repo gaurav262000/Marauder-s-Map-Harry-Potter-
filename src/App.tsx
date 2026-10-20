@@ -1,18 +1,21 @@
-import { CircleQuestionMark, FoldVertical, Footprints as FootIcon, LocateFixed, Minus, Plus, Route as RouteIcon, Tag, Users, Volume2, VolumeX, X } from 'lucide-react';
+import { CircleQuestionMark, FoldVertical, Footprints as FootIcon, LocateFixed, Minus, Moon, Plus, Route as RouteIcon, Tag, Users, Volume2, VolumeX, X } from 'lucide-react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibre } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { CandleLight } from './components/CandleLight.tsx';
 import { GroupPanel } from './components/GroupPanel.tsx';
 import { HelpDialog } from './components/HelpDialog.tsx';
+import { InkLetter } from './components/InkLetter.tsx';
 import { Intro } from './components/Intro.tsx';
 import { formatCoord, PlaceNote } from './components/PlaceNote.tsx';
 import { SearchBox } from './components/SearchBox.tsx';
 import { useAmbientAudio } from './hooks/useAmbientAudio.ts';
 import { ME_ID, useGroup } from './hooks/useGroup.ts';
 import { distance, type LngLat } from './lib/geo.ts';
-import type { Member } from './lib/group.ts';
+import type { Member, Owl, SecretNote } from './lib/group.ts';
 import { placeAt, walkingRoute, type Place } from './lib/services.ts';
+import { flyOwl, portal } from './map/effects.ts';
 import { createFootprints, type Footprints } from './map/footprints.ts';
 import { provideImages } from './map/images.ts';
 import { LABEL_LAYERS, parchmentStyle } from './map/style.ts';
@@ -32,6 +35,18 @@ function load(key: string) {
 const storedName = () => load('atlas-name') ?? '';
 
 const STALE_MS = 12 * 3600_000; // friends not heard from in 12 h drop off the map
+const CLOAK_MS = 30 * 60_000;
+const NEAR_M = 50; // how close you must stand to read a secret note
+const FOLD_MS = 1100;
+const isNight = () => new Date().getHours() >= 19 || new Date().getHours() < 6;
+const readNotes = (): string[] => JSON.parse(load('atlas-notes-read') ?? '[]');
+function remember(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private mode */
+  }
+}
 const PUBLISH_MS = 3000;
 const HEARTBEAT_MS = 30_000;
 
@@ -57,6 +72,12 @@ export default function App() {
   const [sound, setSound] = useState(false);
   const [zoom, setZoom] = useState(16);
   const [panel, setPanel] = useState(false);
+  const [night, setNight] = useState(isNight);
+  const [folding, setFolding] = useState(false);
+  const [cloakedUntil, setCloakedUntil] = useState(() => Math.max(0, Number(load('atlas-cloak')) || 0));
+  const cloaked = cloakedUntil > Date.now();
+  const [reading, setReading] = useState<{ owl: Owl } | { note: SecretNote } | null>(null);
+  const lights = useRef<(() => LngLat[]) | null>(null);
   const grp = useGroup(map !== null, name);
   const { members, ref: groupRef } = grp;
   const shownFriends = useRef(new Set<string>());
@@ -69,7 +90,7 @@ export default function App() {
   const helpRef = useRef<HTMLDialogElement>(null);
   const fp = useRef<Footprints | null>(null);
   const popupEl = useRef<HTMLDivElement>(document.createElement('div'));
-  const { rustle } = useAmbientAudio(sound);
+  const { rustle, scratch } = useAmbientAudio(sound);
 
   // ——— Map lifecycle ———
   useEffect(() => {
@@ -92,6 +113,9 @@ export default function App() {
         reducedMotion: reducedMotion(),
         onArrive: () => setJourney((j) => j && { ...j, arrived: true }),
       });
+      lights.current = () => fp.current?.lights() ?? [];
+      // names are written in once the map is opened
+      for (const id of LABEL_LAYERS) m.setPaintProperty(id, 'text-opacity', 0);
       setMap(m);
     });
     m.on('click', (e) => setNote({ at: [e.lngLat.lng, e.lngLat.lat] }));
@@ -114,6 +138,95 @@ export default function App() {
   }, [map, labels]);
 
   useEffect(() => fp.current?.setWanderers(wanderers), [map, wanderers]);
+
+  // Opening the map, the place names are inked in one kind after another.
+  useEffect(() => {
+    if (!map) return;
+    LABEL_LAYERS.forEach((id, i) => {
+      map.setPaintProperty(id, 'text-opacity-transition', opened ? { duration: 900, delay: 500 + i * 250 } : { duration: 0, delay: 0 });
+      map.setPaintProperty(id, 'text-opacity', opened ? 1 : 0);
+    });
+  }, [map, opened]);
+
+  // The cloak: no prints, no position sent, until it runs out.
+  useEffect(() => {
+    fp.current?.setCloaked(cloaked);
+    remember('atlas-cloak', String(cloakedUntil));
+    if (!cloaked) return;
+    const t = setTimeout(() => setCloakedUntil(0), cloakedUntil - Date.now());
+    return () => clearTimeout(t);
+  }, [map, cloaked, cloakedUntil]);
+
+  const toggleCloak = () => {
+    if (cloaked) return setCloakedUntil(0);
+    groupRef.current?.hide();
+    setCloakedUntil(Date.now() + CLOAK_MS);
+  };
+
+  // An owl lands with each unread letter, one at a time.
+  const nextOwl = grp.owls[0];
+  const landing = useRef<Owl | null>(null);
+  useEffect(() => {
+    if (!map || !fp.current || !nextOwl || reading || landing.current === nextOwl) return;
+    landing.current = nextOwl;
+    const from = members[nextOwl.from]?.at ?? (map.unproject([map.getContainer().clientWidth + 60, 0]).toArray() as LngLat);
+    void flyOwl(map, from, fp.current.you()).then(() => {
+      scratch();
+      setReading({ owl: nextOwl });
+    });
+  }, [map, nextOwl, reading, members, scratch]);
+
+  const sendOwl = async (to: { id: string; at?: LngLat }, text: string) => {
+    if (!(await grp.sendOwl(to.id, text))) return setMessage('This owl cannot find its way yet. Ask the group owner to open the map once, then try again.');
+    if (window.matchMedia('(max-width: 760px)').matches) setPanel(false); // the panel would hide the owl
+    if (map && fp.current) void flyOwl(map, fp.current.you(), to.at ?? (map.unproject([map.getContainer().clientWidth + 60, 0]).toArray() as LngLat));
+  };
+
+  // Secret notes: a wax seal on the map; the words appear only to someone standing close.
+  const seals = useRef(new Map<string, maplibregl.Marker>());
+  const openSeal = useRef<(n: SecretNote) => void>(() => {});
+  openSeal.current = (n) => {
+    const here = live.current.fix ?? fp.current?.you();
+    if (n.from === ME_ID || (here && distance(here, n.at) <= NEAR_M)) setReading({ note: n });
+    else setMessage(`A note sealed by ${n.name}. Stand within ${NEAR_M} m of it to break the seal.`);
+  };
+  useEffect(() => {
+    if (!map) return;
+    const keys = new Set(grp.notes.map((n) => n.key));
+    for (const [k, m] of seals.current) {
+      if (keys.has(k)) continue;
+      m.remove();
+      seals.current.delete(k);
+    }
+    for (const n of grp.notes) {
+      if (seals.current.has(n.key)) continue;
+      const el = document.createElement('button');
+      el.className = 'secret-seal';
+      el.setAttribute('aria-label', `Secret note from ${n.name}`);
+      el.onclick = (e) => {
+        e.stopPropagation();
+        openSeal.current(n);
+      };
+      seals.current.set(n.key, new maplibregl.Marker({ element: el }).setLngLat(n.at).addTo(map));
+    }
+  }, [map, grp.notes]);
+  useEffect(() => () => seals.current.forEach((m) => m.remove()), []);
+
+  // Walking up to a friend's note breaks its seal by itself.
+  const notes = grp.notes;
+  useEffect(() => {
+    if (!notes.length || reading) return;
+    const t = setInterval(() => {
+      const here = live.current.fix ?? fp.current?.you();
+      const read = readNotes();
+      const n = here && notes.find((n) => n.from !== ME_ID && !read.includes(n.key) && distance(here, n.at) <= NEAR_M);
+      if (!n) return;
+      remember('atlas-notes-read', JSON.stringify([...read, n.key]));
+      scratch();
+      setReading({ note: n });
+    }, 1500);
+    return () => clearInterval(t);
+  }, [notes, reading, scratch]);
 
   // ——— The tapped-spot note, rendered by React inside a MapLibre popup ———
   const noteAt = note?.at;
@@ -151,7 +264,8 @@ export default function App() {
   }, [map, members]);
 
   // While sharing: follow the device's GPS and tell the group where you are.
-  const sharing = !!grp.group?.sharing && (grp.group.role === 'owner' || grp.group.role === 'member');
+  const inGroup = grp.group?.role === 'owner' || grp.group?.role === 'member';
+  const sharing = !!grp.group?.sharing && inGroup && !cloaked;
   useEffect(() => {
     if (!map || !sharing) return;
     const state = live.current;
@@ -166,7 +280,8 @@ export default function App() {
           map.flyTo({ center: at, zoom: Math.max(map.getZoom(), 16), duration: reducedMotion() ? 0 : 1600 });
         } else fp.current?.glideYou(at);
       },
-      () => setMessage('Location is off, so friends see where you stand on the map. Allow location access to share where you really are.'),
+      // a momentary loss of signal is not worth a warning; a refusal is
+      (err) => err.code === err.PERMISSION_DENIED && setMessage('Location is off, so friends see where you stand on the map. Allow location access to share where you really are.'),
       { enableHighAccuracy: true, maximumAge: 5000 },
     );
     let sent: { at: LngLat; dest: string; t: number; via: object } | null = null;
@@ -227,10 +342,13 @@ export default function App() {
     map.fitBounds(b, { padding: 90, maxZoom: 17.5, duration: reducedMotion() ? 0 : 1200 });
   };
 
-  const appear = (at: LngLat) => {
+  /** Vanish in a whirl of ink and reappear somewhere else. */
+  const appear = async (at: LngLat, whirl = true) => {
     clearJourney();
-    fp.current?.setYou(at);
     setNote(null);
+    if (whirl && map && fp.current) await portal(map, fp.current.you(), 'out');
+    fp.current?.setYou(at);
+    if (whirl && map) void portal(map, at, 'in');
   };
 
   const locate = () => {
@@ -238,7 +356,7 @@ export default function App() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const at: LngLat = [pos.coords.longitude, pos.coords.latitude];
-        appear(at);
+        void appear(at, false);
         map?.flyTo({ center: at, zoom: 17, duration: reducedMotion() ? 0 : 1600 });
       },
       () => setMessage('The parchment could not find you. Allow location access, or search for your street instead.'),
@@ -252,6 +370,18 @@ export default function App() {
     if (p.bbox) map.fitBounds(p.bbox, { ...opts, maxZoom: 17, padding: 40 });
     else map.flyTo({ ...opts, center: p.at, zoom: 17 });
     setNote({ at: p.at, place: p });
+  };
+
+  /** The ink drains away, leaving blank parchment, before the map folds. */
+  const fold = () => {
+    setNote(null);
+    if (reducedMotion()) return setOpened(false);
+    setFolding(true);
+    rustle();
+    setTimeout(() => {
+      setFolding(false);
+      setOpened(false);
+    }, FOLD_MS);
   };
 
   const open = (n: string) => {
@@ -270,7 +400,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app${opened ? ' is-open' : ''}`}>
+    <div className={`app${opened ? ' is-open' : ''}${folding ? ' is-folding' : ''}`}>
       <header className="topbar">
         <h1 className="brand">
           <span className="brand-small">The</span> Enchanted Atlas
@@ -287,7 +417,7 @@ export default function App() {
           <button className="icon-btn" onClick={() => helpRef.current?.showModal()} aria-label="How to use the map" title="How to use the map">
             <CircleQuestionMark aria-hidden />
           </button>
-          <button className="icon-btn" onClick={() => setOpened(false)} aria-label="Fold the map" title="Fold the map">
+          <button className="icon-btn" onClick={fold} aria-label="Fold the map" title="Fold the map">
             <FoldVertical aria-hidden />
           </button>
         </div>
@@ -296,6 +426,7 @@ export default function App() {
       <main className="stage">
         <div className="sheet">
           <div ref={container} className="map" />
+          {night && map && <CandleLight map={map} lights={lights} />}
           <div className="grain" aria-hidden />
           <div className="vignette" aria-hidden />
           <p className="frame-text top" aria-hidden>
@@ -324,6 +455,9 @@ export default function App() {
             </button>
             <button className="ctl toggle" aria-pressed={wanderers} onClick={() => setWanderers((v) => !v)} aria-label="Wandering footprints" title={`${wanderers ? 'Hide' : 'Show'} wandering footprints`}>
               <FootIcon aria-hidden />
+            </button>
+            <button className="ctl toggle" aria-pressed={night} onClick={() => setNight((v) => !v)} aria-label="Candlelight" title={night ? 'Daylight' : 'Candlelight'}>
+              <Moon aria-hidden />
             </button>
           </div>
         </div>
@@ -371,7 +505,9 @@ export default function App() {
             <span ref={coordRef}>{formatCoord(START)}</span>
           </span>
           <span className="zoom">zoom {zoom.toFixed(1)}</span>
-          {sharing ? (
+          {cloaked ? (
+            <span className="where cloaked">Under the cloak: your group cannot see you</span>
+          ) : sharing ? (
             <span className="where sharing">Sharing your location with your group</span>
           ) : (
             zoom < 15 && <span className="where">Lean closer to see the wanderers</span>
@@ -396,11 +532,41 @@ export default function App() {
           onToggleShare={grp.toggleShare}
           onLeave={grp.leave}
           onFocus={focusMember}
+          onSendOwl={(m, text) => void sendOwl(m, text)}
+          cloakedUntil={cloaked ? cloakedUntil : 0}
+          onCloak={toggleCloak}
           onClose={() => setPanel(false)}
         />
       )}
       {!opened && <Intro name={name} onOpen={open} />}
       <HelpDialog ref={helpRef} />
+
+      {reading && 'owl' in reading && (
+        <InkLetter
+          title={`An owl from ${reading.owl.name}`}
+          text={reading.owl.text}
+          onClose={() => {
+            grp.readOwl(reading.owl);
+            setReading(null);
+          }}
+          onReply={(text) => void sendOwl({ id: reading.owl.from, at: members[reading.owl.from]?.at }, text)}
+        />
+      )}
+      {reading && 'note' in reading && (
+        <InkLetter title={reading.note.from === ME_ID ? 'Your secret note' : `A note left here by ${reading.note.name}`} text={reading.note.text} onClose={() => setReading(null)}>
+          {reading.note.from === ME_ID && (
+            <button
+              className="btn"
+              onClick={() => {
+                grp.removeNote(reading.note.key);
+                setReading(null);
+              }}
+            >
+              Burn this note
+            </button>
+          )}
+        </InkLetter>
+      )}
 
       {note &&
         createPortal(
@@ -408,7 +574,16 @@ export default function App() {
             at={note.at}
             place={note.place}
             onWalk={() => walkTo(note.at, note.place)}
-            onAppear={() => appear(note.at)}
+            onAppear={() => void appear(note.at)}
+            onLeaveNote={
+              inGroup
+                ? async (text) => {
+                    const ok = await grp.leaveNote(note.at, text);
+                    setNote(null);
+                    setMessage(ok ? 'Your note is sealed here. Friends will read it when they stand on this spot.' : 'The map is not connected yet. Try again in a moment.');
+                  }
+                : undefined
+            }
             onClose={() => setNote(null)}
           />,
           popupEl.current,

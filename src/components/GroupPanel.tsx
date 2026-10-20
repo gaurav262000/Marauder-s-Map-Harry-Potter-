@@ -1,10 +1,11 @@
-import { Check, Copy, LogOut, Radio, Share2, ShieldAlert, ShieldCheck, UserMinus, Users, X } from 'lucide-react';
+import { Bird, Check, Copy, EyeOff, LogOut, Radio, Share2, ShieldAlert, ShieldCheck, UserMinus, Users, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { GroupState, Invite, RequestView } from '../hooks/useGroup.ts';
 import { inviteLink, parseInvite } from '../hooks/useGroup.ts';
 import { distance, type LngLat } from '../lib/geo.ts';
 import type { Member } from '../lib/group.ts';
 import { safetyNumber } from '../lib/groupCrypto.ts';
+import { Quip } from './InkLetter.tsx';
 
 interface Props {
   group: GroupState | null;
@@ -23,8 +24,14 @@ interface Props {
   onToggleShare: () => void;
   onLeave: () => void;
   onFocus: (m: Member) => void;
+  onSendOwl: (m: Member, text: string) => void;
+  /** ms since epoch the cloak lasts until, 0 when off */
+  cloakedUntil: number;
+  onCloak: () => void;
   onClose: () => void;
 }
+
+const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 const ago = (t: number) => {
   const s = Math.max(0, (Date.now() - t) / 1000);
@@ -45,6 +52,8 @@ function Safety({ keys }: { keys: { pub: JsonWebKey; signPub: JsonWebKey } | nul
 export function GroupPanel(p: Props) {
   const [text, setText] = useState('');
   const [copied, setCopied] = useState(false);
+  const [owlTo, setOwlTo] = useState<string | null>(null);
+  const [owlText, setOwlText] = useState('');
   const typed = parseInvite(text);
   const g = p.group;
 
@@ -100,7 +109,7 @@ export function GroupPanel(p: Props) {
               <form className="join" onSubmit={join}>
                 <label htmlFor="group-invite">Paste the invite link</label>
                 <input id="group-invite" value={text} onChange={(e) => setText(e.target.value)} placeholder="https://…#g=…" autoComplete="off" spellCheck={false} />
-                {text && !typed && <p className="fine warn-text">That is not a complete invite link.</p>}
+                {text && !typed && <Quip>This map does not speak to strangers. That is not a whole invite link.</Quip>}
                 <button className="btn" type="submit" disabled={!typed}>
                   Ask to join
                 </button>
@@ -126,7 +135,8 @@ export function GroupPanel(p: Props) {
 
       {g?.role === 'denied' && (
         <>
-          <p className="invite">The group owner has not approved this device, or has removed it.</p>
+          <Quip>The keeper of this map does not know you. Off you go, and mind the stairs.</Quip>
+          <p className="fine">The group owner has not approved this device, or has removed it.</p>
           <button className="btn leave" onClick={p.onLeave}>
             OK
           </button>
@@ -178,6 +188,11 @@ export function GroupPanel(p: Props) {
             <Radio aria-hidden /> {g.sharing ? 'Sharing my location — tap to stop' : 'Not sharing — tap to share my location'}
           </button>
           <p className="fine">{p.online ? 'Connected. Locations are end-to-end encrypted.' : 'Connecting to the relay…'}</p>
+          {g.sharing && (
+            <button className="btn cloak" aria-pressed={p.cloakedUntil > 0} onClick={p.onCloak}>
+              <EyeOff aria-hidden /> {p.cloakedUntil ? `Under the cloak until ${clock(p.cloakedUntil)} — take it off` : 'Wear the cloak for 30 minutes'}
+            </button>
+          )}
 
           <h3>On the map</h3>
           {p.members.length === 0 ? (
@@ -185,7 +200,7 @@ export function GroupPanel(p: Props) {
           ) : (
             <ul className="members">
               {p.members.map((m) => (
-                <li key={m.id}>
+                <li key={m.id} className="member-row">
                   <button className="member" onClick={() => p.onFocus(m)}>
                     <span className="m-name">
                       {m.name} {m.live && <span className="tag">live</span>}
@@ -194,6 +209,26 @@ export function GroupPanel(p: Props) {
                       {m.dest ? `going to ${m.dest.name}` : 'standing still'} · {far(distance(p.youAt, m.at))} · {ago(m.t)}
                     </span>
                   </button>
+                  <button className="btn small" aria-expanded={owlTo === m.id} onClick={() => setOwlTo(owlTo === m.id ? null : m.id)} aria-label={`Send an owl to ${m.name}`}>
+                    <Bird aria-hidden /> Owl
+                  </button>
+                  {owlTo === m.id && (
+                    <form
+                      className="reply"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        p.onSendOwl(m, owlText);
+                        setOwlText('');
+                        setOwlTo(null);
+                      }}
+                    >
+                      <label htmlFor="owl-text">A letter for {m.name} — only they can read it</label>
+                      <textarea id="owl-text" value={owlText} maxLength={280} rows={2} autoFocus onChange={(e) => setOwlText(e.target.value)} />
+                      <button className="btn primary" type="submit" disabled={!owlText.trim()}>
+                        Send the owl
+                      </button>
+                    </form>
+                  )}
                 </li>
               ))}
             </ul>

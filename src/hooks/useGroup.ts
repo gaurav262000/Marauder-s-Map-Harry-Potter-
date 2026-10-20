@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { connectGroup, type Group, type JoinRequest, type Member } from '../lib/group.ts';
+import type { LngLat } from '../lib/geo.ts';
+import { connectGroup, type Group, type JoinRequest, type Member, type Owl, type SecretNote } from '../lib/group.ts';
 import { fingerprint, newGroupCode, newGroupKey, normalizeCode, samePub, type Identity } from '../lib/groupCrypto.ts';
 import { deviceIdentity } from '../lib/keystore.ts';
 
@@ -27,6 +28,7 @@ export interface Invite {
 export type RequestView = JoinRequest & { changed: boolean };
 
 const GROUP_KEY = 'atlas-group-v3';
+const OWLS_READ = 'atlas-owls-read';
 
 function load<T>(key: string): T | null {
   try {
@@ -70,6 +72,9 @@ export function useGroup(enabled: boolean, name: string) {
   const [members, setMembers] = useState<Record<string, Member>>({});
   const [requests, setRequests] = useState<Record<string, RequestView>>({});
   const [online, setOnline] = useState(false);
+  /** letters not yet read, oldest first; read ones are remembered per sender by time */
+  const [owls, setOwls] = useState<Owl[]>([]);
+  const [notes, setNotes] = useState<Record<string, SecretNote>>({});
   const ref = useRef<Group | null>(null);
   /** first keys seen per requesting device: a later request with other keys is suspicious */
   const seenKeys = useRef(new Map<string, JsonWebKey>());
@@ -117,6 +122,12 @@ export function useGroup(enabled: boolean, name: string) {
         if (g.key && g.sharing) ref.current?.hide(); // leave nothing behind on the old topic
         setGroup({ ...g, key: k, epoch: ep, role: 'member', ownerSignPub: signPub });
       },
+      onOwl: (o) => {
+        if ((load<Record<string, number>>(OWLS_READ)?.[o.from] ?? 0) >= o.t) return;
+        setOwls((all) => (all.some((x) => x.from === o.from && x.t >= o.t) ? all : [...all.filter((x) => x.from !== o.from), o]));
+      },
+      onNote: (n) => setNotes((all) => ({ ...all, [n.key]: n })),
+      onNoteGone: (k) => setNotes((all) => without(all, k)),
       onDenied: () => {
         if (latest.current.group?.sharing) ref.current?.hide();
         setGroup((g) => g && { ...g, role: 'denied', key: null });
@@ -134,6 +145,7 @@ export function useGroup(enabled: boolean, name: string) {
       ref.current = null;
       setMembers({});
       setRequests({});
+      setNotes({});
       setOnline(false);
     };
     // ownerSignPub is tracked by its x coordinate so a re-created object doesn't reconnect
@@ -146,7 +158,10 @@ export function useGroup(enabled: boolean, name: string) {
     if (!online || !isOwner || !identity || !ref.current) return;
     void ref.current.publishRoster({
       epoch,
-      members: [{ id: ME_ID, name: name || 'A Wanderer', signPub: identity.signPub }, ...(approved ?? []).map(({ id, name, signPub }) => ({ id, name, signPub }))],
+      members: [
+        { id: ME_ID, name: name || 'A Wanderer', signPub: identity.signPub, pub: identity.pub },
+        ...(approved ?? []).map(({ id, name, signPub, pub }) => ({ id, name, signPub, pub })),
+      ],
     });
   }, [online, isOwner, identity, epoch, approved, name]);
 
@@ -195,10 +210,22 @@ export function useGroup(enabled: boolean, name: string) {
     setGroup((g) => g && { ...g, sharing: !g.sharing });
   };
 
+  /** Marks a letter read, so the same owl doesn't land again on the next visit. */
+  const readOwl = (o: Owl) => {
+    save(OWLS_READ, { ...load<Record<string, number>>(OWLS_READ), [o.from]: o.t });
+    setOwls((all) => all.filter((x) => x !== o));
+  };
+  const sendOwl = (to: string, text: string) => ref.current?.sendOwl(to, text.trim().slice(0, 280)) ?? Promise.resolve(false);
+  const leaveNote = (at: LngLat, text: string) => ref.current?.leaveNote(crypto.randomUUID().slice(0, 8), at, text.trim().slice(0, 280)) ?? Promise.resolve(false);
+  const removeNote = (key: string) => ref.current?.removeNote(key.slice(key.indexOf('/') + 1));
+
   const leave = () => {
     ref.current?.hide();
     setGroup(null);
   };
 
-  return { identity, group, invite, members, requests: Object.values(requests), online, ref, create, join, approve, decline, remove, toggleShare, leave };
+  return {
+    identity, group, invite, members, requests: Object.values(requests), online, ref, create, join, approve, decline, remove, toggleShare, leave,
+    owls, readOwl, sendOwl, notes: Object.values(notes), leaveNote, removeNote,
+  };
 }

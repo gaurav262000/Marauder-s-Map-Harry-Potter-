@@ -26,6 +26,11 @@ npm test           # geometry checks (node:test, Node 22+)
 - **Your footprints** — tap a spot, then **Walk here**: a walking route is fetched and your prints, labelled with your name, walk it. Over water the prints give way to a broom and a trail of sparks. **Appear here** moves you instantly; the target button jumps to your real location.
 - **Wanderers** — at street level, four residents of the parchment stroll along whichever streets are on screen, turning at junctions.
 - **Friends & groups** — start a group and send the invite link. Opening the link only lets someone *ask* to join; the group owner approves or declines each request (checking a 20-digit safety number shown on both phones). Approved members see each other live: name tag, footprints, distance, and where each person is heading. The owner can remove anyone, which re-keys the group.
+- **Owl post** — send a group member a letter only they can read (sealed to their key); an owl carries it across the map.
+- **Secret notes** — hide a note at a place for your group; a wax seal marks it and it opens only for someone standing within 50 m.
+- **The cloak** — vanish from your group for 30 minutes, leaving no footprints.
+- **Candlelight** — after 7 pm (or with the moon button) the map sinks into dusk, lit only around you, your friends and the wanderers.
+- **Little magic** — names are inked onto the map as it opens, letters write themselves, appearing somewhere is a whirl of ink, the ink drains away when the map is folded, and the map answers back to nameless strangers.
 - **Seek any place** — search for any town, street or landmark (press Enter).
 - **The oath** — the map opens only once you write your name, and folds away again from the top bar.
 - Optional ambient sound (off by default), place-name toggle, compass that turns back to north, reduced-motion support.

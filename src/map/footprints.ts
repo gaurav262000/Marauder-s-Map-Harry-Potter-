@@ -46,6 +46,10 @@ export interface Footprints {
   glideYou(at: LngLat): void;
   setFriend(id: string, label: string, at: LngLat): void;
   removeFriend(id: string): void;
+  /** Under the cloak you leave no prints and your ribbon reads "unseen". */
+  setCloaked(on: boolean): void;
+  /** Where everyone carrying a light is: you, friends and the wanderers on screen. */
+  lights(): LngLat[];
   destroy(): void;
 }
 
@@ -96,6 +100,7 @@ export function createFootprints(
   const friends = new Map<string, Walker>();
   const all = () => [me, ...wanderers, ...friends.values()];
   let wandering = !reducedMotion;
+  let cloaked = false;
   let roads: LngLat[][] = [];
   let dirty = true;
 
@@ -104,6 +109,7 @@ export function createFootprints(
   const overWater = (at: LngLat) => map.queryRenderedFeatures(map.project(at), { layers: ['water'] }).length > 0;
 
   const plant = (w: Walker, at: LngLat, brg: number) => {
+    if (w.you && cloaked) return;
     const flying = overWater(at);
     w.marker.getElement().classList.toggle('is-flying', flying);
     w.left = !w.left;
@@ -328,6 +334,16 @@ export function createFootprints(
         friends.set(id, w);
       } else glide(w, at);
       if (w.name !== name) label(w.marker.getElement(), (w.name = name));
+    },
+    setCloaked(on) {
+      cloaked = on;
+      me.marker.getElement().classList.toggle('is-cloaked', on);
+      if (on) me.prints = [];
+      dirty = true;
+    },
+    lights() {
+      const shown = [me, ...friends.values(), ...(wandering ? wanderers.filter((w) => w.t) : [])];
+      return shown.map((w) => w.marker.getLngLat().toArray() as LngLat);
     },
     removeFriend(id) {
       friends.get(id)?.marker.remove();

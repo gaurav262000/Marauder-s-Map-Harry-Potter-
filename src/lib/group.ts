@@ -23,7 +23,26 @@ export interface JoinRequest {
 /** Who may post positions, as signed by the owner. Names come from here, not from members. */
 export interface Roster {
   epoch: number;
-  members: { id: string; name: string; signPub: JsonWebKey }[];
+  /** pub (ECDH) lets members seal owls to each other; older owners don't send it */
+  members: { id: string; name: string; signPub: JsonWebKey; pub?: JsonWebKey }[];
+}
+
+/** A letter carried by owl, readable only by its one recipient. */
+export interface Owl {
+  from: string;
+  name: string;
+  text: string;
+  t: number;
+}
+
+/** A note left at a place for the group, shown when someone stands close to it. */
+export interface SecretNote {
+  key: string;
+  from: string;
+  name: string;
+  at: LngLat;
+  text: string;
+  t: number;
 }
 
 // MQTT relays (list in vite.config.ts). Every message goes to all of them, so a group keeps
@@ -49,7 +68,10 @@ function asRoster(v: unknown): Roster | null {
   const r = v as Partial<Roster> | null;
   if (!r || !Number.isFinite(r.epoch) || !Array.isArray(r.members)) return null;
   const members = r.members.filter((m) => m && typeof m.id === 'string' && typeof m.name === 'string' && isPub(m.signPub));
-  return { epoch: r.epoch!, members: members.map((m) => ({ id: m.id, name: m.name.slice(0, 28), signPub: publicPart(m.signPub) })) };
+  return {
+    epoch: r.epoch!,
+    members: members.map((m) => ({ id: m.id, name: m.name.slice(0, 28), signPub: publicPart(m.signPub), ...(isPub(m.pub) && { pub: publicPart(m.pub) }) })),
+  };
 }
 
 export interface Me {
@@ -78,6 +100,9 @@ export interface Handlers {
   /** members: the owner sent (or replaced) the group key */
   onKey?: (key: string, epoch: number, ownerSignPub: JsonWebKey) => void;
   onDenied?: () => void;
+  onOwl?: (o: Owl) => void;
+  onNote?: (n: SecretNote) => void;
+  onNoteGone?: (key: string) => void;
 }
 
 export interface Group {
@@ -91,6 +116,10 @@ export interface Group {
   refuse(to: { id: string; pub: JsonWebKey }): Promise<void>;
   /** owner: publish who is allowed to post positions */
   publishRoster(r: Roster): Promise<boolean>;
+  /** false when the recipient's key isn't known (not on the roster, or an older owner's roster) */
+  sendOwl(to: string, text: string): Promise<boolean>;
+  leaveNote(id: string, at: LngLat, text: string): Promise<boolean>;
+  removeNote(id: string): void;
   leave(): void;
 }
 
@@ -103,6 +132,8 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
   const lobbyBase = `${PREFIX}/l/${lobby.topic}`;
   const inboxBase = `${PREFIX}/i/${lobby.topic}`;
   const presenceBase = presence && `${PREFIX}/p/${presence.topic}`;
+  const owlBase = presenceBase && `${presenceBase}/o`;
+  const noteBase = presenceBase && `${presenceBase}/n`;
 
   const clients = BROKERS.map((url) =>
     mqtt.connect(url, { clientId: `atlas-${Math.random().toString(36).slice(2, 12)}`, reconnectPeriod: 5000, connectTimeout: 10_000 }),
@@ -132,6 +163,29 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
     if (m) h.onMember?.({ ...m, name: entry.name });
   };
 
+  // Owls and notes are checked against the roster too; ones that arrive before it wait here.
+  const owls = new Map<string, Uint8Array>();
+  const notes = new Map<string, Uint8Array>();
+  const member = (id: string) => roster?.members.find((m) => m.id === id);
+
+  const openOwl = async (from: string) => {
+    const entry = member(from);
+    const payload = owls.get(from);
+    if (!entry?.pub || !payload) return;
+    const v = (await unsealFrom(me.identity.priv, entry.pub, payload)) as Partial<Owl> | null;
+    if (typeof v?.text === 'string' && Number.isFinite(v.t)) h.onOwl?.({ from, name: entry.name, text: v.text.slice(0, 280), t: v.t! });
+  };
+
+  const openNote = async (key: string) => {
+    const from = key.slice(0, key.indexOf('/'));
+    const entry = member(from);
+    const payload = notes.get(key);
+    if (!entry || !payload) return;
+    const v = (await verify(entry.signPub, await unseal(presence!.key, payload))) as Partial<SecretNote> & { epoch?: number } | null;
+    if (v?.epoch === link.epoch && typeof v.text === 'string' && isCoord(v.at) && Number.isFinite(v.t))
+      h.onNote?.({ key, from, name: entry.name, at: v.at, text: v.text.slice(0, 280), t: v.t! });
+  };
+
   const onPresence = async (id: string, payload: Uint8Array) => {
     if (id === me.id) return;
     if (!payload.length) {
@@ -146,6 +200,8 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
       // Anyone no longer on the roster disappears; everyone waiting is re-checked.
       for (const id of waiting.keys()) if (!r.members.some((m) => m.id === id)) h.onGone?.(id);
       for (const id of waiting.keys()) void check(id);
+      for (const from of owls.keys()) void openOwl(from);
+      for (const key of notes.keys()) void openNote(key);
       return;
     }
     waiting.set(id, opened);
@@ -176,7 +232,7 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
 
   for (const c of clients) {
     c.on('connect', () => {
-      if (presenceBase) c.subscribe(`${presenceBase}/+`);
+      if (presenceBase) c.subscribe([`${presenceBase}/+`, `${owlBase}/${me.id}/+`, `${noteBase}/+/+`]);
       if (link.isOwner) c.subscribe(`${lobbyBase}/+`);
       else c.subscribe(`${inboxBase}/${me.id}`);
       for (const [topic, payload] of kept) c.publish(topic, payload as Buffer, { retain: true, qos: 1 });
@@ -187,7 +243,19 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
     c.on('message', (topic, buf) => {
       const payload = new Uint8Array(buf);
       const id = topic.slice(topic.lastIndexOf('/') + 1);
-      if (presenceBase && topic.startsWith(presenceBase + '/')) void onPresence(id, payload);
+      if (owlBase && topic.startsWith(`${owlBase}/${me.id}/`)) {
+        if (!payload.length) return;
+        owls.set(id, payload);
+        void openOwl(id);
+      } else if (noteBase && topic.startsWith(noteBase + '/')) {
+        const key = topic.slice(noteBase.length + 1);
+        if (!payload.length) {
+          notes.delete(key);
+          return h.onNoteGone?.(key);
+        }
+        notes.set(key, payload);
+        void openNote(key);
+      } else if (presenceBase && topic.startsWith(presenceBase + '/')) void onPresence(id, payload);
       else if (topic.startsWith(lobbyBase + '/')) void onRequest(id, payload);
       else if (topic === `${inboxBase}/${me.id}`) void onInbox(payload);
     });
@@ -219,6 +287,18 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
     async publishRoster(r) {
       if (!presenceBase) return false;
       return send(`${presenceBase}/${ROSTER}`, await seal(presence!.key, await sign(me.identity.signPriv, r)));
+    },
+    async sendOwl(to, text) {
+      const pub = member(to)?.pub;
+      if (!owlBase || !pub) return false;
+      return send(`${owlBase}/${to}/${me.id}`, await sealTo(me.identity.priv, pub, { text, t: Date.now() }));
+    },
+    async leaveNote(id, at, text) {
+      if (!noteBase) return false;
+      return send(`${noteBase}/${me.id}/${id}`, await seal(presence!.key, await sign(me.identity.signPriv, { at, text, t: Date.now(), epoch: link.epoch })));
+    },
+    removeNote(id) {
+      if (noteBase) send(`${noteBase}/${me.id}/${id}`, '');
     },
     leave() {
       for (const c of clients) c.end();
