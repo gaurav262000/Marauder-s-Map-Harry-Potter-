@@ -490,7 +490,7 @@ button, input { font: inherit; color: inherit; }
 .where.sharing { color: var(--wax-dark); }
 .where.sharing::before { content: '● '; color: var(--wax); }
 
-/* ——— Intro: the closed parchment ——— */
+/* ——— Intro: the closed parchment, inking itself in ——— */
 .intro {
   position: fixed;
   inset: 0;
@@ -502,35 +502,90 @@ button, input { font: inherit; color: inherit; }
   overflow: auto;
 }
 .intro-sheet {
+  position: relative;
   width: min(520px, 100%);
   display: grid;
-  gap: 12px;
   justify-items: center;
   text-align: center;
-  padding: 34px 28px 26px;
-  border-radius: 3px;
+  padding: 10px 26px 22px;
   color: var(--ink-dark);
+  /* folds, stains and age */
   background:
-    linear-gradient(90deg, transparent 49.6%, rgba(90, 58, 22, 0.18) 50%, transparent 50.4%),
-    radial-gradient(ellipse at 30% 20%, rgba(255, 250, 230, 0.7), transparent 50%),
-    radial-gradient(ellipse at 50% 45%, var(--parchment-light) 30%, var(--parchment) 70%, var(--parchment-deep));
-  box-shadow: 0 0 0 1px rgba(30, 14, 3, 0.6), 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 0 60px rgba(120, 75, 25, 0.35);
-  animation: note-emerge 0.6s ease-out both;
+    linear-gradient(90deg, transparent 49.7%, rgba(90, 58, 22, 0.28) 49.9%, rgba(255, 245, 220, 0.35) 50.2%, transparent 50.5%),
+    linear-gradient(180deg, transparent 33.2%, rgba(90, 58, 22, 0.16) 33.4%, rgba(255, 245, 220, 0.25) 33.6%, transparent 33.9%, transparent 66.4%, rgba(90, 58, 22, 0.16) 66.6%, rgba(255, 245, 220, 0.25) 66.8%, transparent 67.1%),
+    radial-gradient(ellipse 18% 12% at 82% 58%, rgba(120, 70, 25, 0.18), transparent),
+    radial-gradient(ellipse 10% 7% at 22% 30%, rgba(120, 70, 25, 0.14), transparent),
+    radial-gradient(ellipse 25% 15% at 30% 88%, rgba(120, 70, 25, 0.16), transparent),
+    url('../assets/paper-grain.svg'),
+    radial-gradient(ellipse at 50% 40%, #f1dfb3 25%, #e2c792 65%, #c9a467);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 0 70px rgba(110, 65, 20, 0.45), inset 0 0 6px rgba(80, 45, 10, 0.6);
+  /* slightly ragged edges */
+  clip-path: polygon(0 1%, 6% 0, 18% 0.6%, 31% 0, 47% 0.5%, 60% 0, 76% 0.7%, 90% 0, 100% 0.8%, 99.4% 14%, 100% 31%, 99.3% 49%, 100% 68%, 99.5% 86%, 100% 99%, 84% 100%, 70% 99.3%, 52% 100%, 36% 99.4%, 16% 100%, 8% 99.5%, 0 92%, 0.6% 74%, 0 55%, 0.5% 36%, 0 18%);
+  animation: unfold 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) both;
 }
-.intro-ribbon {
+/* a dog-eared corner, curling up */
+.intro-sheet::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 46px;
+  height: 46px;
+  background: linear-gradient(45deg, #241509 49%, #d9bd86 51%, #f3e4bf 80%, #c9a467);
+  box-shadow: 4px -4px 8px rgba(40, 20, 5, 0.35);
+  border-top-right-radius: 6px;
+}
+@keyframes unfold { from { transform: scaleY(0.04) scaleX(0.9); opacity: 0; } 60% { opacity: 1; } }
+
+/* every line inks itself in: from a blur of wet ink to crisp letters */
+.ink-in { animation: ink-appear 1.3s ease-out var(--d, 0s) both; }
+@keyframes ink-appear {
+  from { opacity: 0; filter: blur(7px); transform: scale(1.04); letter-spacing: 0.08em; }
+  50% { opacity: 0.85; filter: blur(1.5px); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+
+.intro-banner { width: 100%; max-width: min(440px, 52vh); margin-bottom: -6px; overflow: visible; }
+.intro-banner .draw path, .intro-emblem .draw * { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.6s ease-in-out 0.3s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.intro-banner .ribbon { animation: ink-appear 1.2s ease-out 0.2s both; transform-origin: 200px 70px; }
+.ribbon-band { fill: #ead3a0; stroke: var(--ink); stroke-width: 1.3; }
+.ribbon-end { fill: #c9a467; stroke: var(--ink); stroke-width: 1.2; }
+.ribbon-text { font: 13px var(--font-display); letter-spacing: 0.16em; fill: var(--ink-dark); }
+
+.intro-messrs { margin: 4px 0 0; font: 1.9rem/1 var(--font-hand); color: var(--ink); }
+.intro-makers { margin: 0; font: 400 clamp(1.25rem, 5vw, 1.7rem)/1.1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-dark); max-width: 22ch; }
+.intro-makers span { font: italic 0.7em var(--font-fell); text-transform: none; color: var(--ink); }
+.intro-script { margin: 2px 0 0; font: 1.6rem/1.1 var(--font-hand); color: var(--ink); }
+
+.intro-crest { position: relative; width: 100%; max-width: min(400px, 44vh); margin: 2px 0 -6px; }
+.intro-emblem { display: block; width: 100%; overflow: visible; }
+.intro-emblem .globe * { stroke: rgba(69, 41, 15, 0.55); stroke-width: 1; animation-delay: 0.9s; }
+.intro-emblem .ticks line { stroke: var(--ink); stroke-width: 1.2; animation: ink-appear 1s ease-out 1.3s both; }
+.intro-emblem .rose { animation: ink-appear 1.2s ease-out 1.2s both; transform-origin: 200px 140px; }
+.rose-dark { fill: rgba(60, 33, 12, 0.85); }
+.rose-light { fill: rgba(245, 230, 195, 0.9); stroke: rgba(60, 33, 12, 0.85); stroke-width: 0.8; }
+.blot { fill: rgba(62, 20, 8, 0.9); transform-origin: 204px 142px; animation: blot-spread 1.4s cubic-bezier(0.2, 0.8, 0.3, 1) 1.5s both; }
+@keyframes blot-spread { from { transform: scale(0.08); opacity: 0; } 30% { opacity: 1; } }
+.spiral-text { font: 9.5px var(--font-display); letter-spacing: 0.12em; fill: rgba(60, 33, 12, 0.75); }
+.intro-crest h1 {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 62%;
   margin: 0;
-  padding: 4px 26px;
-  font: 400 1rem var(--font-display);
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  border-top: 1.5px solid var(--ink);
-  border-bottom: 1.5px solid var(--ink);
+  font: 400 clamp(1.5rem, 6.4vw, 2.3rem)/0.95 var(--font-display);
+  letter-spacing: 0.04em;
+  color: #f1dfb3;
+  text-shadow: 0 0 6px rgba(40, 10, 2, 0.8);
 }
-.intro-script { margin: 6px 0 0; font: 1.7rem/1.1 var(--font-hand); color: var(--ink); }
-.intro h1 { margin: 0; font: 400 clamp(2rem, 7vw, 2.9rem)/1 var(--font-display); letter-spacing: 0.05em; text-wrap: balance; }
-.intro-sub { margin: 0 0 10px; font: italic 1.1rem/1.4 var(--font-fell); color: var(--ink-sepia); max-width: 34ch; }
+.intro-crest h1 span { display: block; font: 1.2em var(--font-hand); text-transform: none; letter-spacing: 0; color: #e7c98c; }
+.intro-sub { margin: 4px 0 8px; font: italic 1.05rem/1.4 var(--font-fell); color: var(--ink-sepia); max-width: 34ch; }
+
+.intro-fields { display: grid; gap: 10px; justify-items: center; width: 100%; }
 .intro label { font: 1.45rem var(--font-hand); color: var(--ink); }
-.intro input {
+.intro input:not([type='checkbox']) {
   width: min(300px, 100%);
   padding: 6px 4px;
   border: 0;
@@ -540,9 +595,24 @@ button, input { font: inherit; color: inherit; }
   font: 1.35rem var(--font-fell);
   color: var(--wax-dark);
 }
-.intro input:focus { outline: none; border-bottom-color: var(--wax); }
-.intro .btn { margin-top: 10px; }
+.intro input:not([type='checkbox']):focus { outline: none; border-bottom-color: var(--wax); }
+.intro input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--wax); flex: none; }
+.intro .lock-choice { display: flex; align-items: center; justify-content: center; gap: 10px; font: italic 1rem var(--font-fell); }
+.intro .btn { margin-top: 6px; }
 .intro-fine { margin: 2px 0 0; font-size: 0.85rem; color: var(--ink-sepia); }
+.intro-latin {
+  margin: 14px 4px 0;
+  font: 0.72rem/1.35 var(--font-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: justify;
+  color: rgba(69, 41, 15, 0.55);
+  transform: rotate(-2deg) skewX(-4deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-sheet, .ink-in, .intro-banner .ribbon, .intro-emblem .ticks line, .intro-emblem .rose, .blot { animation: none; }
+  .intro-banner .draw path, .intro-emblem .draw * { animation: none; stroke-dashoffset: 0; }
+}
 
 /* ——— Help dialog ——— */
 .help {
