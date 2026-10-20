@@ -28,7 +28,7 @@ jobs:
       - name: Push dist to gh-pages
         working-directory: dist
         run: |
-          touch .nojekyll
+          touch .nojekyll && echo enchantedatlas.in > CNAME
           git init -q -b gh-pages
           git add -A
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -qm "Deploy ${GITHUB_SHA}"

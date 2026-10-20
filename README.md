@@ -20,6 +20,8 @@ npm test           # geometry checks (node:test, Node 22+)
 
 `.github/workflows/pages.yml` builds the site on every push to `main` (and to the development branch) and publishes it to the `gh-pages` branch. If the site does not appear at `https://<user>.github.io/<repo>/`, set **Settings → Pages → Source: Deploy from a branch → `gh-pages` / root**.
 
+The live site is at **https://enchantedatlas.in**: the workflow writes a `CNAME` file for it, and the domain's DNS has `A @ 185.199.108.153` (GitHub Pages). To use another domain, change the name in `pages.yml`.
+
 ## What it does
 
 - **The whole world** — pan, zoom, pinch and rotate anywhere; street-level detail everywhere OpenStreetMap has it.

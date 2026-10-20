@@ -15,5 +15,5 @@ jobs:
           node scripts/relay-probe.mjs
           wss://broker.emqx.io:8084/mqtt wss://public:public@public.cloud.shiftr.io wss://test.mosquitto.org:8081/mqtt
       - name: Wait for the latest deploy
-        run: for i in $(seq 36); do curl -s https://gaurav262000.github.io/Marauder-s-Map-Harry-Potter-/ | grep -q manifest.webmanifest && exit 0; sleep 5; done; exit 1
-      - run: node scripts/relay-check.mjs https://gaurav262000.github.io/Marauder-s-Map-Harry-Potter-/
+        run: for i in $(seq 120); do curl -sf https://enchantedatlas.in/ | grep -q manifest.webmanifest && exit 0; sleep 10; done; exit 1
+      - run: node scripts/relay-check.mjs https://enchantedatlas.in/
