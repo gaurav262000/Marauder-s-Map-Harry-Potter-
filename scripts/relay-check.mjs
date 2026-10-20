@@ -58,6 +58,23 @@ try {
 } catch (e) {
   log('FAILED', e.message.split('\n')[0]);
 }
+// The offline worker must not break the map: reload under it and see tiles arrive through it.
+try {
+  const C = await (await browser.newContext()).newPage();
+  await C.goto(URL, { waitUntil: 'load' });
+  await C.evaluate(() => navigator.serviceWorker.ready);
+  let viaWorker = 0;
+  C.on('response', (r) => r.url().includes('tiles.openfreemap.org') && r.status() === 200 && r.fromServiceWorker() && viaWorker++);
+  await C.reload({ waitUntil: 'load' });
+  await C.fill('#reader-name', 'Checker');
+  await C.click('.intro button[type=submit]');
+  await C.waitForTimeout(8000);
+  log('tiles served through the worker:', viaWorker);
+  if (!viaWorker) ok = false;
+} catch (e) {
+  log('worker check FAILED', e.message.split('\n')[0]);
+  ok = false;
+}
 log('owner panel:\n' + (await panel(A)));
 log('friend panel:\n' + (await panel(B)));
 await browser.close();

@@ -1,9 +1,9 @@
-import { Bird, Check, Copy, EyeOff, LogOut, Radio, Share2, ShieldAlert, ShieldCheck, UserMinus, Users, X } from 'lucide-react';
+import { Bird, Check, Copy, EyeOff, Flag, LogOut, Radio, Share2, ShieldAlert, ShieldCheck, Tent, UserMinus, Users, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { GroupState, Invite, RequestView } from '../hooks/useGroup.ts';
 import { inviteLink, parseInvite } from '../hooks/useGroup.ts';
 import { distance, type LngLat } from '../lib/geo.ts';
-import type { Member } from '../lib/group.ts';
+import type { Member, SecretNote } from '../lib/group.ts';
 import { safetyNumber } from '../lib/groupCrypto.ts';
 import { Quip } from './InkLetter.tsx';
 
@@ -28,8 +28,17 @@ interface Props {
   /** ms since epoch the cloak lasts until, 0 when off */
   cloakedUntil: number;
   onCloak: () => void;
+  meeting: SecretNote | null;
+  onClearMeeting: () => void;
+  /** ms since epoch you stay in the open field until, 0 when out of it */
+  fieldUntil: number;
+  fieldPeople: number;
+  onField: (on: boolean) => void;
   onClose: () => void;
 }
+
+/** Rough walking time: 80 m a minute, as the crow flies. */
+const eta = (m: number) => (m < 40 ? 'there' : `about ${Math.max(1, Math.round(m / 80))} min away`);
 
 const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -54,6 +63,7 @@ export function GroupPanel(p: Props) {
   const [copied, setCopied] = useState(false);
   const [owlTo, setOwlTo] = useState<string | null>(null);
   const [owlText, setOwlText] = useState('');
+  const [fieldAsk, setFieldAsk] = useState(false);
   const typed = parseInvite(text);
   const g = p.group;
 
@@ -194,6 +204,27 @@ export function GroupPanel(p: Props) {
             </button>
           )}
 
+          {p.meeting && (
+            <section className="meeting">
+              <h3>
+                <Flag aria-hidden className="inline-icon" /> Meeting at {p.meeting.text}
+              </h3>
+              <ul className="eta">
+                <li>
+                  You — {eta(distance(p.youAt, p.meeting.at))}
+                </li>
+                {p.members.map((m) => (
+                  <li key={m.id}>
+                    {m.name} — {eta(distance(m.at, p.meeting!.at))}
+                  </li>
+                ))}
+              </ul>
+              <button className="btn small" onClick={p.onClearMeeting}>
+                Cancel the meeting
+              </button>
+            </section>
+          )}
+
           <h3>On the map</h3>
           {p.members.length === 0 ? (
             <p className="fine">No one else is sharing yet.</p>
@@ -256,6 +287,42 @@ export function GroupPanel(p: Props) {
           </button>
         </>
       )}
+      <section className="field">
+        <h3>
+          <Tent aria-hidden className="inline-icon" /> The open field
+        </h3>
+        {p.fieldUntil ? (
+          <>
+            <p className="fine">
+              You are in the open field until {clock(p.fieldUntil)}. {p.fieldPeople ? `${p.fieldPeople} ${p.fieldPeople === 1 ? 'other wanderer is' : 'others are'} here with you.` : 'No one else is here yet.'}
+            </p>
+            <button className="btn" onClick={() => p.onField(false)}>
+              Leave the open field
+            </button>
+          </>
+        ) : fieldAsk ? (
+          <>
+            <p className="fine warn-text">
+              Anyone within about 10 km who is also in the open field will see your name and where you are (rounded to about 100 m). Strangers too. You leave it by yourself after an hour.
+            </p>
+            <div className="req-actions">
+              <button className="btn primary" onClick={() => (setFieldAsk(false), p.onField(true))}>
+                Yes, step into the field
+              </button>
+              <button className="btn" onClick={() => setFieldAsk(false)}>
+                Not now
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="fine">A public square: everyone who chooses to step in sees each other nearby. Only those who step in.</p>
+            <button className="btn" onClick={() => setFieldAsk(true)}>
+              Step into the open field…
+            </button>
+          </>
+        )}
+      </section>
     </aside>
   );
 }

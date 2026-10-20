@@ -18,6 +18,11 @@ export function HelpDialog({ ref }: { ref: Ref<HTMLDialogElement> }) {
           <li><b>The cloak</b> — in the group panel, wear the cloak to vanish from your group for 30 minutes. You leave no footprints.</li>
           <li><b>Candlelight</b> — the moon button darkens the map to candlelight around you, your friends and the wanderers. It comes on by itself after 7 pm.</li>
           <li><b>Over water</b> — no footprints on water: you fly across on a broom.</li>
+          <li><b>Meeting place</b> — tap a spot, then “Meet here”. Everyone in your group sees the pennant and how far each person is; an owl tells you when a friend is close or has arrived.</li>
+          <li><b>The open field</b> — a public square in the group panel. Only people who step in see each other, nearby (about 10 km), with places rounded to about 100 m. You leave it by yourself after an hour.</li>
+          <li><b>Wand</b> — the wand button lets you draw a spell on the map: a circle for candlelight, a zigzag for the cloak, a flick upwards to find yourself.</li>
+          <li><b>Weather</b> — real rain, snow, fog and storms where the map is looking (from Open-Meteo).</li>
+          <li><b>Secret words</b> — lock the map on the opening page; it opens only with your words. Install it from your browser's menu (“Add to Home screen”) to use it like an app.</li>
         </ul>
         <p className="help-fine">Map data © OpenStreetMap contributors, tiles by OpenFreeMap, search by Nominatim, walking routes by FOSSGIS OSRM.</p>
         <button className="btn primary" value="close">

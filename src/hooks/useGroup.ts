@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LngLat } from '../lib/geo.ts';
 import { connectGroup, type Group, type JoinRequest, type Member, type Owl, type SecretNote } from '../lib/group.ts';
 import { fingerprint, newGroupCode, newGroupKey, normalizeCode, samePub, type Identity } from '../lib/groupCrypto.ts';
@@ -218,14 +218,20 @@ export function useGroup(enabled: boolean, name: string) {
   const sendOwl = (to: string, text: string) => ref.current?.sendOwl(to, text.trim().slice(0, 280)) ?? Promise.resolve(false);
   const leaveNote = (at: LngLat, text: string) => ref.current?.leaveNote(crypto.randomUUID().slice(0, 8), at, text.trim().slice(0, 280)) ?? Promise.resolve(false);
   const removeNote = (key: string) => ref.current?.removeNote(key.slice(key.indexOf('/') + 1));
+  /** Everyone's latest choice travels under one id per person; the newest wins and empty text clears it. */
+  const setMeeting = (at: LngLat, place: string) => ref.current?.leaveNote('meet', at, place.slice(0, 60), true) ?? Promise.resolve(false);
+  const clearMeeting = () => ref.current?.leaveNote('meet', [0, 0], '', true);
 
   const leave = () => {
     ref.current?.hide();
     setGroup(null);
   };
 
+  const noteList = useMemo(() => Object.values(notes), [notes]);
+  const requestList = useMemo(() => Object.values(requests), [requests]);
+
   return {
-    identity, group, invite, members, requests: Object.values(requests), online, ref, create, join, approve, decline, remove, toggleShare, leave,
-    owls, readOwl, sendOwl, notes: Object.values(notes), leaveNote, removeNote,
+    identity, group, invite, members, requests: requestList, online, ref, create, join, approve, decline, remove, toggleShare, leave,
+    owls, readOwl, sendOwl, notes: noteList, leaveNote, removeNote, setMeeting, clearMeeting,
   };
 }

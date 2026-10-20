@@ -1,4 +1,4 @@
-import { Feather, Footprints, MapPinned, X } from 'lucide-react';
+import { Feather, Flag, Footprints, MapPinned, X } from 'lucide-react';
 import { useState } from 'react';
 import type { LngLat } from '../lib/geo.ts';
 import type { Place } from '../lib/services.ts';
@@ -13,11 +13,13 @@ interface Props {
   onAppear: () => void;
   /** given only while in a group: hide a note here for friends to find */
   onLeaveNote?: (text: string) => void;
+  /** given only while in a group: make this the group's meeting place */
+  onMeet?: () => void;
   onClose: () => void;
 }
 
 /** The little note that appears where the reader taps the parchment. */
-export function PlaceNote({ at, place, onWalk, onAppear, onLeaveNote, onClose }: Props) {
+export function PlaceNote({ at, place, onWalk, onAppear, onLeaveNote, onMeet, onClose }: Props) {
   const [writing, setWriting] = useState(false);
   const [text, setText] = useState('');
   return (
@@ -35,6 +37,11 @@ export function PlaceNote({ at, place, onWalk, onAppear, onLeaveNote, onClose }:
         <button className="btn" onClick={onAppear}>
           <MapPinned aria-hidden /> Appear here
         </button>
+        {onMeet && (
+          <button className="btn" onClick={onMeet}>
+            <Flag aria-hidden /> Meet here
+          </button>
+        )}
         {onLeaveNote && !writing && (
           <button className="btn" onClick={() => setWriting(true)}>
             <Feather aria-hidden /> Hide a secret note

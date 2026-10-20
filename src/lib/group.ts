@@ -35,7 +35,10 @@ export interface Owl {
   t: number;
 }
 
-/** A note left at a place for the group, shown when someone stands close to it. */
+/**
+ * A note left at a place for the group, shown when someone stands close to it.
+ * The group's meeting place travels the same way, flagged `meet` (the newest wins; empty text clears it).
+ */
 export interface SecretNote {
   key: string;
   from: string;
@@ -43,6 +46,7 @@ export interface SecretNote {
   at: LngLat;
   text: string;
   t: number;
+  meet?: boolean;
 }
 
 // MQTT relays (list in vite.config.ts). Every message goes to all of them, so a group keeps
@@ -118,7 +122,7 @@ export interface Group {
   publishRoster(r: Roster): Promise<boolean>;
   /** false when the recipient's key isn't known (not on the roster, or an older owner's roster) */
   sendOwl(to: string, text: string): Promise<boolean>;
-  leaveNote(id: string, at: LngLat, text: string): Promise<boolean>;
+  leaveNote(id: string, at: LngLat, text: string, meet?: boolean): Promise<boolean>;
   removeNote(id: string): void;
   leave(): void;
 }
@@ -183,7 +187,7 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
     if (!entry || !payload) return;
     const v = (await verify(entry.signPub, await unseal(presence!.key, payload))) as Partial<SecretNote> & { epoch?: number } | null;
     if (v?.epoch === link.epoch && typeof v.text === 'string' && isCoord(v.at) && Number.isFinite(v.t))
-      h.onNote?.({ key, from, name: entry.name, at: v.at, text: v.text.slice(0, 280), t: v.t! });
+      h.onNote?.({ key, from, name: entry.name, at: v.at, text: v.text.slice(0, 280), t: v.t!, ...(v.meet === true && { meet: true }) });
   };
 
   const onPresence = async (id: string, payload: Uint8Array) => {
@@ -293,9 +297,9 @@ export async function connectGroup(link: GroupLink, me: Me, h: Handlers): Promis
       if (!owlBase || !pub) return false;
       return send(`${owlBase}/${to}/${me.id}`, await sealTo(me.identity.priv, pub, { text, t: Date.now() }));
     },
-    async leaveNote(id, at, text) {
+    async leaveNote(id, at, text, meet = false) {
       if (!noteBase) return false;
-      return send(`${noteBase}/${me.id}/${id}`, await seal(presence!.key, await sign(me.identity.signPriv, { at, text, t: Date.now(), epoch: link.epoch })));
+      return send(`${noteBase}/${me.id}/${id}`, await seal(presence!.key, await sign(me.identity.signPriv, { at, text, t: Date.now(), epoch: link.epoch, meet })));
     },
     removeNote(id) {
       if (noteBase) send(`${noteBase}/${me.id}/${id}`, '');

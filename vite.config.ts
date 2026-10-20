@@ -12,6 +12,7 @@ const CONNECT = [
   'https://tiles.openfreemap.org',
   'https://nominatim.openstreetmap.org',
   'https://routing.openstreetmap.de',
+  'https://api.open-meteo.com',
   ...BROKERS.split(',').map((u) => new URL(u).origin),
 ];
 
@@ -21,7 +22,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   'font-src https://fonts.gstatic.com',
   "img-src 'self' data: blob:",
-  'worker-src blob:',
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
   'child-src blob:',
   `connect-src 'self' ${CONNECT.join(' ')}`,
   "object-src 'none'",

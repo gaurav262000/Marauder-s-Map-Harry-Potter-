@@ -1,7 +1,7 @@
-import { CircleQuestionMark, FoldVertical, Footprints as FootIcon, LocateFixed, Minus, Moon, Plus, Route as RouteIcon, Tag, Users, Volume2, VolumeX, X } from 'lucide-react';
+import { CircleQuestionMark, CloudRain, FoldVertical, Footprints as FootIcon, LocateFixed, Minus, Moon, Plus, Route as RouteIcon, Tag, Users, Volume2, VolumeX, WandSparkles, X } from 'lucide-react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibre } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CandleLight } from './components/CandleLight.tsx';
 import { GroupPanel } from './components/GroupPanel.tsx';
@@ -10,11 +10,17 @@ import { InkLetter } from './components/InkLetter.tsx';
 import { Intro } from './components/Intro.tsx';
 import { formatCoord, PlaceNote } from './components/PlaceNote.tsx';
 import { SearchBox } from './components/SearchBox.tsx';
+import { Wand } from './components/Wand.tsx';
+import { WeatherLayer } from './components/WeatherLayer.tsx';
 import { useAmbientAudio } from './hooks/useAmbientAudio.ts';
 import { ME_ID, useGroup } from './hooks/useGroup.ts';
+import { useOpenField } from './hooks/useOpenField.ts';
 import { distance, type LngLat } from './lib/geo.ts';
 import type { Member, Owl, SecretNote } from './lib/group.ts';
+import { LOCK_KEY, type Lock } from './lib/lock.ts';
 import { placeAt, walkingRoute, type Place } from './lib/services.ts';
+import type { Spell } from './lib/spells.ts';
+import { coarse, SKY_WORDS, skyAt, type Sky } from './lib/weather.ts';
 import { flyOwl, portal } from './map/effects.ts';
 import { createFootprints, type Footprints } from './map/footprints.ts';
 import { provideImages } from './map/images.ts';
@@ -38,6 +44,17 @@ const STALE_MS = 12 * 3600_000; // friends not heard from in 12 h drop off the m
 const CLOAK_MS = 30 * 60_000;
 const NEAR_M = 50; // how close you must stand to read a secret note
 const FOLD_MS = 1100;
+const FIELD_MS = 60 * 60_000; // the open field lets you go after an hour
+const CLOSE_M = 100; // a friend this close gets an owl's warning
+const WEATHER_MS = 15 * 60_000;
+const ARRIVED_M = 40;
+const storedLock = (): Lock | null => {
+  try {
+    return JSON.parse(load(LOCK_KEY) ?? 'null');
+  } catch {
+    return null;
+  }
+};
 const isNight = () => new Date().getHours() >= 19 || new Date().getHours() < 6;
 const readNotes = (): string[] => JSON.parse(load('atlas-notes-read') ?? '[]');
 function remember(key: string, value: string) {
@@ -78,6 +95,11 @@ export default function App() {
   const cloaked = cloakedUntil > Date.now();
   const [reading, setReading] = useState<{ owl: Owl } | { note: SecretNote } | null>(null);
   const lights = useRef<(() => LngLat[]) | null>(null);
+  const [fieldUntil, setFieldUntil] = useState(() => Math.max(0, Number(load('atlas-field')) || 0));
+  const [lock, setLock] = useState(storedLock);
+  const [wand, setWand] = useState(false);
+  const [weather, setWeather] = useState(true);
+  const [sky, setSky] = useState<Sky>('clear');
   const grp = useGroup(map !== null, name);
   const { members, ref: groupRef } = grp;
   const shownFriends = useRef(new Set<string>());
@@ -167,20 +189,27 @@ export default function App() {
   const nextOwl = grp.owls[0];
   const landing = useRef<Owl | null>(null);
   useEffect(() => {
-    if (!map || !fp.current || !nextOwl || reading || landing.current === nextOwl) return;
+    if (!map || !fp.current || !opened || !nextOwl || reading || landing.current === nextOwl) return;
     landing.current = nextOwl;
     const from = members[nextOwl.from]?.at ?? (map.unproject([map.getContainer().clientWidth + 60, 0]).toArray() as LngLat);
     void flyOwl(map, from, fp.current.you()).then(() => {
       scratch();
       setReading({ owl: nextOwl });
     });
-  }, [map, nextOwl, reading, members, scratch]);
+  }, [map, opened, nextOwl, reading, members, scratch]);
 
   const sendOwl = async (to: { id: string; at?: LngLat }, text: string) => {
     if (!(await grp.sendOwl(to.id, text))) return setMessage('This owl cannot find its way yet. Ask the group owner to open the map once, then try again.');
     if (window.matchMedia('(max-width: 760px)').matches) setPanel(false); // the panel would hide the owl
     if (map && fp.current) void flyOwl(map, fp.current.you(), to.at ?? (map.unproject([map.getContainer().clientWidth + 60, 0]).toArray() as LngLat));
   };
+
+  // The newest meeting place anyone in the group chose; an empty one means it was called off.
+  const meeting = useMemo(() => {
+    const m = grp.notes.filter((n) => n.meet).sort((a, b) => b.t - a.t)[0];
+    return m?.text ? m : null;
+  }, [grp.notes]);
+  const notes = useMemo(() => grp.notes.filter((n) => !n.meet), [grp.notes]);
 
   // Secret notes: a wax seal on the map; the words appear only to someone standing close.
   const seals = useRef(new Map<string, maplibregl.Marker>());
@@ -192,13 +221,13 @@ export default function App() {
   };
   useEffect(() => {
     if (!map) return;
-    const keys = new Set(grp.notes.map((n) => n.key));
+    const keys = new Set(notes.map((n) => n.key));
     for (const [k, m] of seals.current) {
       if (keys.has(k)) continue;
       m.remove();
       seals.current.delete(k);
     }
-    for (const n of grp.notes) {
+    for (const n of notes) {
       if (seals.current.has(n.key)) continue;
       const el = document.createElement('button');
       el.className = 'secret-seal';
@@ -209,13 +238,23 @@ export default function App() {
       };
       seals.current.set(n.key, new maplibregl.Marker({ element: el }).setLngLat(n.at).addTo(map));
     }
-  }, [map, grp.notes]);
+  }, [map, notes]);
   useEffect(() => () => seals.current.forEach((m) => m.remove()), []);
 
-  // Walking up to a friend's note breaks its seal by itself.
-  const notes = grp.notes;
+  // The meeting place: a little pennant on the map.
   useEffect(() => {
-    if (!notes.length || reading) return;
+    if (!map || !meeting) return;
+    const el = document.createElement('div');
+    el.className = 'meet-flag';
+    el.setAttribute('aria-label', `Meeting place: ${meeting.text}`);
+    el.innerHTML = '<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M5 31V3"/><path class="cloth" d="M5 3c5-2 8 2 15 0v11c-7 2-10-2-15 0Z"/></svg>';
+    const marker = new maplibregl.Marker({ element: el, anchor: 'bottom-left', offset: [-5, 0] }).setLngLat(meeting.at).addTo(map);
+    return () => void marker.remove();
+  }, [map, meeting]);
+
+  // Walking up to a friend's note breaks its seal by itself.
+  useEffect(() => {
+    if (!notes.length || reading || !opened) return;
     const t = setInterval(() => {
       const here = live.current.fix ?? fp.current?.you();
       const read = readNotes();
@@ -226,7 +265,7 @@ export default function App() {
       setReading({ note: n });
     }, 1500);
     return () => clearInterval(t);
-  }, [notes, reading, scratch]);
+  }, [notes, reading, opened, scratch]);
 
   // ——— The tapped-spot note, rendered by React inside a MapLibre popup ———
   const noteAt = note?.at;
@@ -266,8 +305,11 @@ export default function App() {
   // While sharing: follow the device's GPS and tell the group where you are.
   const inGroup = grp.group?.role === 'owner' || grp.group?.role === 'member';
   const sharing = !!grp.group?.sharing && inGroup && !cloaked;
+  const fieldOn = fieldUntil > Date.now() && !cloaked;
+  // GPS runs while anyone may see you: your group, or the open field.
+  const tracking = sharing || fieldOn;
   useEffect(() => {
-    if (!map || !sharing) return;
+    if (!map || !tracking) return;
     const state = live.current;
     let first = true;
     const watch = navigator.geolocation?.watchPosition(
@@ -284,6 +326,15 @@ export default function App() {
       (err) => err.code === err.PERMISSION_DENIED && setMessage('Location is off, so friends see where you stand on the map. Allow location access to share where you really are.'),
       { enableHighAccuracy: true, maximumAge: 5000 },
     );
+    return () => {
+      if (watch !== undefined) navigator.geolocation.clearWatch(watch);
+      state.fix = null;
+    };
+  }, [map, tracking]);
+
+  useEffect(() => {
+    if (!map || !sharing) return;
+    const state = live.current;
     let sent: { at: LngLat; dest: string; t: number; via: object } | null = null;
     const tick = async () => {
       const g = groupRef.current;
@@ -300,12 +351,79 @@ export default function App() {
     };
     void tick();
     const timer = setInterval(tick, PUBLISH_MS);
-    return () => {
-      clearInterval(timer);
-      if (watch !== undefined) navigator.geolocation.clearWatch(watch);
-      state.fix = null;
-    };
+    return () => clearInterval(timer);
   }, [map, sharing, groupRef]);
+
+  // ——— The open field ———
+  const strangers = useOpenField(grp.identity, fieldOn, () => live.current.fix ?? fp.current?.you() ?? null, name);
+  const shownStrangers = useRef(new Set<string>());
+  useEffect(() => {
+    if (!fp.current) return;
+    const ids = new Set(strangers.map((s) => `f:${s.id}`));
+    for (const s of strangers) fp.current.setFriend(`f:${s.id}`, s.name, s.at, 'stranger');
+    for (const id of shownStrangers.current) if (!ids.has(id)) fp.current.removeFriend(id);
+    shownStrangers.current = ids;
+  }, [map, strangers]);
+  useEffect(() => {
+    remember('atlas-field', String(fieldUntil));
+    if (!fieldUntil) return;
+    const t = setTimeout(() => setFieldUntil(0), Math.max(0, fieldUntil - Date.now()));
+    return () => clearTimeout(t);
+  }, [fieldUntil]);
+
+  // ——— An owl's warning when a friend comes close, or reaches the meeting place ———
+  const alerted = useRef(new Map<string, { close: boolean; there: boolean }>());
+  useEffect(() => {
+    if (!map || !fp.current) return;
+    const here = live.current.fix ?? fp.current.you();
+    for (const m of visibleMembers) {
+      const d = distance(here, m.at);
+      const was = alerted.current.get(m.id);
+      const now = {
+        close: was?.close ? d < CLOSE_M * 1.5 : d < CLOSE_M, // a little slack, so walking at the edge doesn't ring twice
+        there: !!meeting && distance(m.at, meeting.at) < ARRIVED_M,
+      };
+      alerted.current.set(m.id, now);
+      if (!was || !opened) continue; // first sight is not news
+      const news = now.there && !was.there ? `${m.name} has reached ${meeting!.text}.` : now.close && !was.close ? `${m.name} is close — ${Math.round(d)} m away.` : null;
+      if (!news) continue;
+      setMessage(news);
+      scratch();
+      void flyOwl(map, m.at, here);
+    }
+  }, [map, members, meeting, opened]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ——— Weather where the map is looking ———
+  useEffect(() => {
+    if (!map || !weather) return;
+    let asked: { at: string; t: number } | null = null;
+    const look = () => {
+      const c = map.getCenter();
+      const at = coarse([c.lng, c.lat]).join();
+      if (asked && asked.at === at && Date.now() - asked.t < WEATHER_MS) return;
+      asked = { at, t: Date.now() };
+      skyAt([c.lng, c.lat]).then(setSky, () => setSky('clear'));
+    };
+    look();
+    map.on('moveend', look);
+    const t = setInterval(look, WEATHER_MS);
+    return () => {
+      map.off('moveend', look);
+      clearInterval(t);
+    };
+  }, [map, weather]);
+
+  // ——— Wand ———
+  const castSpell = (s: Spell) => {
+    if (s === 'circle') setNight((v) => !v);
+    else if (s === 'up') locate();
+    else if (inGroup && grp.group?.sharing) toggleCloak();
+    else {
+      setMessage('The cloak hides you from your group. Join or start a group first.');
+      return false;
+    }
+    return true;
+  };
 
   const focusMember = (m: Member) => {
     map?.flyTo({ center: m.at, zoom: Math.max(map.getZoom(), 16), duration: reducedMotion() ? 0 : 1400 });
@@ -426,6 +544,7 @@ export default function App() {
       <main className="stage">
         <div className="sheet">
           <div ref={container} className="map" />
+          {weather && <WeatherLayer sky={sky} />}
           {night && map && <CandleLight map={map} lights={lights} />}
           <div className="grain" aria-hidden />
           <div className="vignette" aria-hidden />
@@ -459,8 +578,16 @@ export default function App() {
             <button className="ctl toggle" aria-pressed={night} onClick={() => setNight((v) => !v)} aria-label="Candlelight" title={night ? 'Daylight' : 'Candlelight'}>
               <Moon aria-hidden />
             </button>
+            <button className="ctl toggle" aria-pressed={weather} onClick={() => setWeather((v) => !v)} aria-label="Live weather" title={weather ? SKY_WORDS[sky] : 'Show the weather'}>
+              <CloudRain aria-hidden />
+            </button>
+            <button className="ctl toggle" aria-pressed={wand} onClick={() => setWand((v) => !v)} aria-label="Wand: draw a spell" title="Wand: draw a spell">
+              <WandSparkles aria-hidden />
+            </button>
           </div>
         </div>
+
+        {wand && <Wand onSpell={castSpell} onDone={() => setWand(false)} />}
 
         <button ref={compass} className="compass" onClick={() => map?.resetNorth()} aria-label="Turn the map back to north" title="North">
           <svg viewBox="-50 -50 100 100" aria-hidden>
@@ -505,6 +632,7 @@ export default function App() {
             <span ref={coordRef}>{formatCoord(START)}</span>
           </span>
           <span className="zoom">zoom {zoom.toFixed(1)}</span>
+          {weather && sky !== 'clear' && <span className="sky">{SKY_WORDS[sky]}</span>}
           {cloaked ? (
             <span className="where cloaked">Under the cloak: your group cannot see you</span>
           ) : sharing ? (
@@ -535,13 +663,38 @@ export default function App() {
           onSendOwl={(m, text) => void sendOwl(m, text)}
           cloakedUntil={cloaked ? cloakedUntil : 0}
           onCloak={toggleCloak}
+          meeting={meeting}
+          onClearMeeting={() => void grp.clearMeeting()}
+          fieldUntil={fieldOn ? fieldUntil : 0}
+          fieldPeople={strangers.length}
+          onField={(on) => setFieldUntil(on ? Date.now() + FIELD_MS : 0)}
           onClose={() => setPanel(false)}
         />
       )}
-      {!opened && <Intro name={name} onOpen={open} />}
+      {!opened && (
+        <Intro
+          name={name}
+          lock={lock}
+          onOpen={(n, newLock) => {
+            if (newLock) {
+              remember(LOCK_KEY, JSON.stringify(newLock));
+              setLock(newLock);
+            }
+            open(n);
+          }}
+          onForget={() => {
+            try {
+              for (const k of [LOCK_KEY, 'atlas-group-v3', 'atlas-name', 'atlas-notes-read', 'atlas-owls-read', 'atlas-cloak', 'atlas-field']) localStorage.removeItem(k);
+            } catch {
+              /* private mode */
+            }
+            location.reload();
+          }}
+        />
+      )}
       <HelpDialog ref={helpRef} />
 
-      {reading && 'owl' in reading && (
+      {opened && reading && 'owl' in reading && (
         <InkLetter
           title={`An owl from ${reading.owl.name}`}
           text={reading.owl.text}
@@ -552,7 +705,7 @@ export default function App() {
           onReply={(text) => void sendOwl({ id: reading.owl.from, at: members[reading.owl.from]?.at }, text)}
         />
       )}
-      {reading && 'note' in reading && (
+      {opened && reading && 'note' in reading && (
         <InkLetter title={reading.note.from === ME_ID ? 'Your secret note' : `A note left here by ${reading.note.name}`} text={reading.note.text} onClose={() => setReading(null)}>
           {reading.note.from === ME_ID && (
             <button
@@ -575,6 +728,15 @@ export default function App() {
             place={note.place}
             onWalk={() => walkTo(note.at, note.place)}
             onAppear={() => void appear(note.at)}
+            onMeet={
+              inGroup
+                ? async () => {
+                    const place = note.place ?? (await placeAt(note.at).catch(() => null));
+                    setNote(null);
+                    if (!(await grp.setMeeting(note.at, place?.name ?? 'the marked spot'))) setMessage('The map is not connected yet. Try again in a moment.');
+                  }
+                : undefined
+            }
             onLeaveNote={
               inGroup
                 ? async (text) => {

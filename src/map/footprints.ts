@@ -44,7 +44,8 @@ export interface Footprints {
   setWanderers(on: boolean): void;
   /** Smoothly moves you to a new GPS fix (ignored while walking a route). */
   glideYou(at: LngLat): void;
-  setFriend(id: string, label: string, at: LngLat): void;
+  /** strangers are people in the open field, drawn apart from your group */
+  setFriend(id: string, label: string, at: LngLat, kind?: 'friend' | 'stranger'): void;
   removeFriend(id: string): void;
   /** Under the cloak you leave no prints and your ribbon reads "unseen". */
   setCloaked(on: boolean): void;
@@ -57,9 +58,11 @@ const GLIDE_S = 1.5;
 const TELEPORT_M = 3000;
 
 /** The name is written on a ribbon: the span is its band, the tag's ::before/::after its curled ends. */
+type Kind = 'you' | 'friend' | 'stranger' | 'wanderer';
+
 const label = (el: HTMLElement, name: string) => void (el.firstElementChild!.textContent = name);
 
-function tag(name: string, kind: 'you' | 'friend' | 'wanderer') {
+function tag(name: string, kind: Kind) {
   const el = document.createElement('div');
   el.className = `walker-tag is-${kind}`;
   el.style.setProperty('--phase', `${-Math.random() * 3}s`); // ribbons flutter out of step
@@ -78,7 +81,7 @@ export function createFootprints(
   map: MapLibre,
   { start, name, reducedMotion, onArrive }: { start: LngLat; name: string; reducedMotion: boolean; onArrive: () => void },
 ): Footprints {
-  const make = (n: string, kind: 'you' | 'friend' | 'wanderer', at: LngLat): Walker => ({
+  const make = (n: string, kind: Kind, at: LngLat): Walker => ({
     name: n,
     you: kind === 'you',
     t: null,
@@ -326,10 +329,10 @@ export function createFootprints(
       if (me.t && !me.glide) return;
       glide(me, at);
     },
-    setFriend(id, name, at) {
+    setFriend(id, name, at, kind = 'friend') {
       let w = friends.get(id);
       if (!w) {
-        w = make(name, 'friend', at);
+        w = make(name, kind, at);
         w.marker.addTo(map);
         friends.set(id, w);
       } else glide(w, at);

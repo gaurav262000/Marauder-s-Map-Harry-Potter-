@@ -31,6 +31,12 @@ npm test           # geometry checks (node:test, Node 22+)
 - **The cloak** — vanish from your group for 30 minutes, leaving no footprints.
 - **Candlelight** — after 7 pm (or with the moon button) the map sinks into dusk, lit only around you, your friends and the wanderers.
 - **Little magic** — names are inked onto the map as it opens, letters write themselves, appearing somewhere is a whirl of ink, the ink drains away when the map is folded, and the map answers back to nameless strangers.
+- **Meeting place** — pick a spot for the group; everyone sees a pennant and each person's distance, and an owl brings word when a friend comes close or arrives.
+- **The open field** — an opt-in public square: people who step in see each other within about 10 km, positions rounded to about 100 m, signed so nobody can post as someone else. It switches itself off after an hour.
+- **Wand** — draw a spell on the map: a circle (candlelight), a zigzag (the cloak) or a flick upwards (find me).
+- **Weather** — live rain, snow, fog and storms over the parchment from [Open-Meteo](https://open-meteo.com) (only a ~11 km rounded position is sent).
+- **Secret words** — optionally lock the map with a phrase (a salted PBKDF2 hash kept in the browser; it keeps casual eyes off, it is not encryption).
+- **Install as an app** — a web app manifest and a service worker let it be added to the home screen and keep working on a poor connection with tiles already seen.
 - **Seek any place** — search for any town, street or landmark (press Enter).
 - **The oath** — the map opens only once you write your name, and folds away again from the top bar.
 - Optional ambient sound (off by default), place-name toggle, compass that turns back to north, reduced-motion support.
