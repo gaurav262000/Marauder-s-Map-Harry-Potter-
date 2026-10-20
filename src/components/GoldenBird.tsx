@@ -36,6 +36,23 @@ function scatter(parent: HTMLElement, x: number, y: number, n: number, className
   }
 }
 
+// The seeker on a broom who chases the bird: a cloaked flyer of our own, reaching out with one hand.
+// The outstretched hand (66, 25 in the 80×50 box) sits exactly under the pointer.
+const RIDER = `<svg viewBox="0 0 80 50" aria-hidden="true">
+  <path class="r-bristles" d="M14 33 C8 28 2 27 0 29 C3 31 3 34 0 37 C3 38 9 38 14 36Z"/>
+  <path class="r-broom" d="M12 34.5 L74 29"/>
+  <path class="r-cloak" d="M30 33 C26 24 32 14 42 12 C49 11 52 17 50 24 L46 33Z"/>
+  <path class="r-scarf" d="M44 15 C36 12 30 15 22 11 C26 16 32 18 40 19Z"/>
+  <circle class="r-head" cx="48" cy="10" r="5.5"/>
+  <path class="r-hair" d="M43 8 C44 3 51 2 54 6 C51 5 47 6 43 9Z"/>
+  <path class="r-arm" d="M47 19 C54 20 60 23 65 25"/>
+  <circle class="r-hand" cx="66" cy="25" r="2.4"/>
+  <path class="r-leg" d="M40 31 C44 36 50 37 54 36"/>
+</svg>`;
+const RIDER_W = 104;
+const RIDER_H = 65;
+const HAND: [number, number] = [(66 * RIDER_W) / 80, (25 * RIDER_H) / 50];
+
 const BIRD = `<svg viewBox="-30 -20 60 40" aria-hidden="true">
   <path class="gb-wing left" d="M-6 -2 C-16 -16 -28 -14 -29 -6 C-22 -6 -15 -2 -9 4Z"/>
   <path class="gb-wing right" d="M6 -2 C16 -16 28 -14 29 -6 C22 -6 15 -2 9 4Z"/>
@@ -59,6 +76,28 @@ export function GoldenBird({ sound, onClose }: { sound: boolean; onClose: () => 
   const [record, setRecord] = useState(false); // shown the moment the old best falls
   const escape = useRef(0); // seconds of panicked flight after a catch
   const audio = useRef<AudioContext | null>(null);
+  const rider = useRef<HTMLDivElement>(null);
+  const flight = useRef({ x: 0, y: 0, left: false });
+
+  /** The rider follows the pointer, facing the way it moves and tilting into climbs and dives. */
+  const steer = (e: PointerEvent) => {
+    const el = rider.current;
+    const f = field.current;
+    if (!el || !f) return;
+    const r = f.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    const p = flight.current;
+    const dx = x - p.x;
+    if (Math.abs(dx) > 2) p.left = dx < 0;
+    const tilt = Math.max(-20, Math.min(20, (y - p.y) * 1.5)) * (p.left ? -1 : 1);
+    p.x = x;
+    p.y = y;
+    const hx = p.left ? RIDER_W - HAND[0] : HAND[0];
+    el.style.opacity = '1';
+    el.style.transform = `translate(${x - hx}px, ${y - HAND[1]}px) rotate(${tilt}deg) scaleX(${p.left ? -1 : 1})`;
+    el.style.transformOrigin = `${hx}px ${HAND[1]}px`;
+  };
   const over = left <= 0;
 
   /** Bell-like notes, only when the map's sound is on. */
@@ -135,6 +174,7 @@ export function GoldenBird({ sound, onClose }: { sound: boolean; onClose: () => 
 
   const catchIt = (e: PointerEvent) => {
     e.stopPropagation();
+    steer(e);
     if (over) return;
     const n = ++caught.current;
     setScore(n);
@@ -191,7 +231,16 @@ export function GoldenBird({ sound, onClose }: { sound: boolean; onClose: () => 
   };
 
   return (
-    <div className="gb-layer" ref={field} onPointerDown={(e) => e.stopPropagation()}>
+    <div
+      className="gb-layer"
+      ref={field}
+      onPointerMove={steer}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        steer(e);
+      }}
+    >
+      <div className="gb-rider" ref={rider} style={{ width: RIDER_W, height: RIDER_H }} dangerouslySetInnerHTML={{ __html: RIDER }} />
       <p className="gb-score" aria-live="polite">
         Caught {score} · {left}s left{best ? ` · best ${Math.max(best, over ? 0 : score)}` : ''}
       </p>

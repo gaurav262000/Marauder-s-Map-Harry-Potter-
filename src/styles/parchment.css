@@ -1,5 +1,8 @@
 /* ——— Parchment design tokens ——— */
 :root {
+  /* a wand for a pointer; it lights up over anything you can press */
+  --wand: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M5 5L28 28' stroke='%23f5e9c9' stroke-width='5.5' stroke-linecap='round'/><path d='M5 5L28 28' stroke='%233b2412' stroke-width='3' stroke-linecap='round'/><path d='M19 19L28 28' stroke='%236b4423' stroke-width='4.6' stroke-linecap='round'/><path d='M21 21l2 2M24 24l2 2' stroke='%23c9a46a' stroke-width='1'/><circle cx='4' cy='4' r='1.8' fill='%23ffe9a8'/></svg>") 4 4;
+  --wand-lit: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><path d='M5 5L28 28' stroke='%23f5e9c9' stroke-width='5.5' stroke-linecap='round'/><path d='M5 5L28 28' stroke='%233b2412' stroke-width='3' stroke-linecap='round'/><path d='M19 19L28 28' stroke='%236b4423' stroke-width='4.6' stroke-linecap='round'/><path d='M21 21l2 2M24 24l2 2' stroke='%23c9a46a' stroke-width='1'/><circle cx='4' cy='4' r='4.5' fill='%23ffd98a' opacity='.55'/><path d='M4 0v8M0 4h8' stroke='%23fff3c4' stroke-width='1.2'/><circle cx='4' cy='4' r='1.8' fill='%23ffe9a8'/></svg>") 4 4;
   --parchment: #ead7a8;
   --parchment-light: #f5e9c9;
   --parchment-deep: #cfb078;
@@ -24,9 +27,11 @@
 }
 
 * { box-sizing: border-box; }
+input, textarea { cursor: text; }
 html, body, #root { height: 100%; }
 
 body {
+  cursor: var(--wand), auto;
   margin: 0;
   overflow: hidden;
   overscroll-behavior: none;
@@ -80,7 +85,7 @@ button, input { font: inherit; color: inherit; }
   border-radius: 3px;
   background: transparent;
   color: var(--ink);
-  cursor: pointer;
+  cursor: var(--wand-lit), pointer;
 }
 .icon-btn:hover { background: rgba(69, 41, 15, 0.08); }
 .icon-btn svg, .ctl svg, .btn svg { width: 19px; height: 19px; stroke-width: 1.8; }
@@ -98,7 +103,7 @@ button, input { font: inherit; color: inherit; }
   color: var(--ink-dark);
   font-family: var(--font-fell);
   font-size: 1rem;
-  cursor: pointer;
+  cursor: var(--wand-lit), pointer;
 }
 .btn:hover { background: rgba(69, 41, 15, 0.08); }
 .btn:active { translate: 0 1px; }
@@ -124,7 +129,7 @@ button, input { font: inherit; color: inherit; }
 }
 .search input::placeholder { color: var(--ink-sepia); font-style: italic; opacity: 0.8; }
 .search input::-webkit-search-cancel-button { display: none; }
-.search-clear { position: absolute; right: 4px; top: 50%; translate: 0 -50%; border: 0; background: none; color: var(--ink-sepia); cursor: pointer; padding: 6px; display: grid; }
+.search-clear { position: absolute; right: 4px; top: 50%; translate: 0 -50%; border: 0; background: none; color: var(--ink-sepia); cursor: var(--wand-lit), pointer; padding: 6px; display: grid; }
 .search-clear svg { width: 16px; height: 16px; }
 .search-results {
   position: absolute;
@@ -144,7 +149,7 @@ button, input { font: inherit; color: inherit; }
   max-height: 60vh;
   overflow: auto;
 }
-.search-results li { display: flex; flex-direction: column; padding: 8px 10px; cursor: pointer; border-bottom: 1px dashed rgba(69, 41, 15, 0.25); }
+.search-results li { display: flex; flex-direction: column; padding: 8px 10px; cursor: var(--wand-lit), pointer; border-bottom: 1px dashed rgba(69, 41, 15, 0.25); }
 .search-results li:last-child { border-bottom: 0; }
 .search-results li.active { background: rgba(122, 29, 21, 0.09); box-shadow: inset 3px 0 0 var(--wax); }
 .result-name { font-family: var(--font-fell); font-size: 1.05rem; }
@@ -199,8 +204,8 @@ button, input { font: inherit; color: inherit; }
 
 /* ——— MapLibre in ink ——— */
 .maplibregl-canvas { outline: none; }
-.maplibregl-canvas-container.maplibregl-interactive { cursor: grab; }
-.maplibregl-canvas-container.maplibregl-interactive:active { cursor: grabbing; }
+.maplibregl-canvas-container.maplibregl-interactive { cursor: var(--wand), grab; }
+.maplibregl-canvas-container.maplibregl-interactive:active { cursor: var(--wand-lit), grabbing; }
 .maplibregl-ctrl-attrib.maplibregl-compact {
   background: rgba(245, 233, 201, 0.92);
   color: var(--ink);
@@ -307,7 +312,7 @@ button, input { font: inherit; color: inherit; }
   box-shadow: var(--shadow);
   background: var(--parchment-light);
 }
-.ctl { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.ctl { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--ink); cursor: var(--wand-lit), pointer; }
 .ctl + .ctl { border-top: 1px solid rgba(69, 41, 15, 0.25); }
 .ctl:hover { background: rgba(69, 41, 15, 0.08); }
 .ctl:active { background: rgba(69, 41, 15, 0.16); }
@@ -325,7 +330,7 @@ button, input { font: inherit; color: inherit; }
   padding: 0;
   border: 0;
   background: none;
-  cursor: pointer;
+  cursor: var(--wand-lit), pointer;
   z-index: 3;
   transition: transform 0.1s linear;
 }
@@ -457,7 +462,7 @@ button, input { font: inherit; color: inherit; }
 .share-toggle[aria-pressed='true'] svg { color: #f0b37e; }
 .members { list-style: none; margin: 0; padding: 0; }
 .members li + li { border-top: 1px dashed rgba(69, 41, 15, 0.25); }
-.member { display: grid; gap: 2px; width: 100%; padding: 8px 2px; border: 0; background: none; text-align: left; cursor: pointer; }
+.member { display: grid; gap: 2px; width: 100%; padding: 8px 2px; border: 0; background: none; text-align: left; cursor: var(--wand-lit), pointer; }
 .member:hover .m-name { color: var(--wax); }
 .m-name { display: flex; align-items: center; gap: 8px; font: 1.08rem var(--font-fell); }
 .m-where { font-size: 0.88rem; color: var(--ink-sepia); }
@@ -663,7 +668,7 @@ button, input { font: inherit; color: inherit; }
   border-radius: 46% 54% 50% 50%;
   background: radial-gradient(circle at 38% 34%, #b2392c, var(--wax) 55%, var(--wax-dark));
   box-shadow: inset 0 0 0 3px rgba(255, 210, 190, 0.18), 0 2px 4px rgba(30, 10, 3, 0.45);
-  cursor: pointer;
+  cursor: var(--wand-lit), pointer;
   animation: seal-pulse 2.4s ease-in-out infinite;
 }
 .secret-seal::after { content: '✦'; display: block; color: rgba(255, 220, 200, 0.75); font-size: 13px; line-height: 26px; text-align: center; }
@@ -718,7 +723,7 @@ button, input { font: inherit; color: inherit; }
 
 /* ——— Wand ——— */
 .wand-layer { position: absolute; inset: 0 12px 12px; z-index: 4; }
-.wand-canvas { width: 100%; height: 100%; touch-action: none; cursor: crosshair; background: rgba(36, 20, 9, 0.12); }
+.wand-canvas { width: 100%; height: 100%; touch-action: none; cursor: var(--wand-lit), crosshair; background: rgba(36, 20, 9, 0.12); }
 .wand-ink { fill: none; stroke: #ffd98a; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 6px rgba(255, 190, 90, 0.9)) drop-shadow(0 0 2px var(--wax)); }
 .wand-hint { position: absolute; left: 50%; top: 18px; translate: -50% 0; max-width: calc(100% - 32px); margin: 0; padding: 6px 14px; border-radius: 3px; background: rgba(245, 233, 201, 0.94); box-shadow: var(--shadow); font: 1.25rem/1.3 var(--font-hand); color: var(--wax-dark); text-align: center; pointer-events: none; }
 .wand-done { position: absolute; left: 50%; top: 92px; translate: -50% 0; width: auto; background: var(--parchment-light); }
@@ -737,7 +742,7 @@ button, input { font: inherit; color: inherit; }
 
 /* ——— Lock ——— */
 .lock-choice { display: flex; align-items: center; justify-content: center; gap: 8px; font: italic 0.95rem var(--font-fell); color: var(--ink-sepia); }
-.link-btn { border: 0; background: none; font: italic 0.95rem var(--font-fell); color: var(--ink-sepia); text-decoration: underline; cursor: pointer; }
+.link-btn { border: 0; background: none; font: italic 0.95rem var(--font-fell); color: var(--ink-sepia); text-decoration: underline; cursor: var(--wand-lit), pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .meet-flag .cloth, .fog { animation: none; }
@@ -754,7 +759,7 @@ button, input { font: inherit; color: inherit; }
   padding: 0;
   border: 0;
   background: none;
-  cursor: pointer;
+  cursor: var(--wand-lit), pointer;
   filter: drop-shadow(0 0 8px rgba(255, 200, 70, 0.9)) drop-shadow(0 2px 2px rgba(60, 30, 5, 0.5));
 }
 .gb-bird svg { width: 100%; height: 100%; overflow: visible; }
@@ -783,3 +788,22 @@ button, input { font: inherit; color: inherit; }
   .gb-pop, .gb-feather, .gb-confetti, .gb-record, .gb-crown { animation-duration: 0.01s; }
   .gb-record { animation: none; }
 }
+
+/* the seeker on a broom: the game's pointer */
+.gb-layer { cursor: none; }
+.gb-layer .btn, .gb-layer .letter { cursor: var(--wand-lit), pointer; }
+.gb-layer .gb-bird { cursor: none; }
+.gb-rider { position: absolute; left: 0; top: 0; z-index: 2; opacity: 0; pointer-events: none; transition: opacity 0.2s; filter: drop-shadow(0 4px 3px rgba(30, 12, 3, 0.4)); }
+.gb-rider svg { width: 100%; height: 100%; overflow: visible; animation: hover-bob 0.5s ease-in-out infinite alternate; }
+.gb-rider .r-broom, .gb-rider .r-arm, .gb-rider .r-leg { fill: none; stroke-linecap: round; }
+.gb-rider .r-broom { stroke: #6b4423; stroke-width: 2.6; }
+.gb-rider .r-bristles { fill: #c9a46a; stroke: #6b4423; stroke-width: 0.8; }
+.gb-rider .r-cloak { fill: #26140a; }
+.gb-rider .r-scarf { fill: var(--wax); stroke: var(--wax-dark); stroke-width: 0.6; transform-box: fill-box; transform-origin: right center; animation: scarf 0.35s ease-in-out infinite alternate; }
+.gb-rider .r-head, .gb-rider .r-hand { fill: #e8c9a0; stroke: #5b3a1c; stroke-width: 0.8; }
+.gb-rider .r-hair { fill: #2b1a0e; }
+.gb-rider .r-arm { stroke: #26140a; stroke-width: 3; }
+.gb-rider .r-leg { stroke: #26140a; stroke-width: 3.4; }
+@keyframes hover-bob { from { transform: translateY(-1.5px); } to { transform: translateY(1.5px); } }
+@keyframes scarf { from { transform: skewY(-8deg) scaleX(0.9); } to { transform: skewY(6deg) scaleX(1.08); } }
+@media (prefers-reduced-motion: reduce) { .gb-rider svg, .gb-rider .r-scarf { animation: none; } }
