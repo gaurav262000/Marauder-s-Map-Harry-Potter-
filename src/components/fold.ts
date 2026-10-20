@@ -64,7 +64,7 @@ export function splitOpen(sheet: HTMLElement) {
   const { box, left, right } = stage(sheet, true);
   left.style.transformOrigin = '0% 50%'; // each half swings on its outer edge, like a gate
   right.style.transformOrigin = '100% 50%';
-  const timing = { duration: 1300, easing: 'cubic-bezier(0.5, 0, 0.75, 0.6)', fill: 'forwards' } as const;
+  const timing = { duration: 1700, easing: 'cubic-bezier(0.45, 0, 0.55, 1)', fill: 'forwards' } as const;
   left.animate([{ transform: 'rotateY(0deg)', opacity: 1 }, { opacity: 1, offset: 0.7 }, { transform: 'rotateY(-105deg)', opacity: 0 }], timing);
   right.animate([{ transform: 'rotateY(0deg)', opacity: 1 }, { opacity: 1, offset: 0.7 }, { transform: 'rotateY(105deg)', opacity: 0 }], timing);
   for (const s of box.querySelectorAll<HTMLElement>('.fold-shade')) s.animate([{ opacity: 0 }, { opacity: 0.6 }], timing);

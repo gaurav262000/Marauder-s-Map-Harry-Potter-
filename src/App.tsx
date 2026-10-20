@@ -1,4 +1,4 @@
-import { CircleQuestionMark, CloudRain, FoldVertical, Sparkles, Footprints as FootIcon, LocateFixed, Minus, Moon, Plus, Route as RouteIcon, Tag, Users, Volume2, VolumeX, WandSparkles, X } from 'lucide-react';
+import { CircleQuestionMark, CloudRain, FoldVertical, Sparkles, Footprints as FootIcon, LocateFixed, Minus, Moon, Plus, Route as RouteIcon, Tag, Music, Users, WandSparkles, X } from 'lucide-react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibre } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -42,6 +42,13 @@ const START: LngLat = (() => {
 })();
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Glide to a place nearby; jump straight to one far away instead of flying round the world. */
+function goTo(map: MapLibre, at: LngLat, zoom: number, duration: number) {
+  const c = map.getCenter();
+  if (reducedMotion() || distance([c.lng, c.lat], at) > 50_000) map.jumpTo({ center: at, zoom });
+  else map.flyTo({ center: at, zoom, duration });
+}
 
 function load(key: string) {
   try {
@@ -111,7 +118,8 @@ export default function App() {
   const [lock, setLock] = useState(storedLock);
   const [wand, setWand] = useState(false);
   const [game, setGame] = useState(false);
-  const [music, setMusic] = useState(() => load('atlas-music') !== '0');
+  // music plays unless it was turned off with the music button last time
+  const music = load('atlas-music') !== '0';
   const [weather, setWeather] = useState(true);
   const [sky, setSky] = useState<Sky>('clear');
   const grp = useGroup(map !== null, name);
@@ -333,7 +341,7 @@ export default function App() {
         if (first) {
           first = false;
           fp.current?.setYou(at);
-          map.flyTo({ center: at, zoom: Math.max(map.getZoom(), 16), duration: reducedMotion() ? 0 : 1600 });
+          goTo(map, at, Math.max(map.getZoom(), 16), 1600);
         } else fp.current?.glideYou(at);
       },
       // a momentary loss of signal is not worth a warning; a refusal is
@@ -440,7 +448,7 @@ export default function App() {
   };
 
   const focusMember = (m: Member) => {
-    map?.flyTo({ center: m.at, zoom: Math.max(map.getZoom(), 16), duration: reducedMotion() ? 0 : 1400 });
+    if (map) goTo(map, m.at, Math.max(map.getZoom(), 16), 1400);
     if (window.matchMedia('(max-width: 760px)').matches) setPanel(false);
   };
 
@@ -491,6 +499,11 @@ export default function App() {
   useEffect(() => {
     if (!sound) stopMusic();
   }, [sound]);
+  const toggleMusic = () => {
+    remember('atlas-music', sound ? '0' : '1');
+    if (sound) setSound(false);
+    else playMusic();
+  };
 
   /** Opening the map, you appear where you really are (quietly staying put if the phone won't say). */
   const findMeQuietly = () =>
@@ -500,7 +513,7 @@ export default function App() {
         remember(LAST_KEY, JSON.stringify(at));
         if (live.current.journey && !live.current.journey.arrived) return; // don't yank someone mid-walk
         void appear(at, false);
-        map?.flyTo({ center: at, zoom: Math.max(map.getZoom(), 16), duration: reducedMotion() ? 0 : 1800 });
+        if (map) goTo(map, at, Math.max(map.getZoom(), 16), 1800);
       },
       () => {},
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 },
@@ -513,7 +526,7 @@ export default function App() {
         const at: LngLat = [pos.coords.longitude, pos.coords.latitude];
         remember(LAST_KEY, JSON.stringify(at));
         void appear(at, false);
-        map?.flyTo({ center: at, zoom: 17, duration: reducedMotion() ? 0 : 1600 });
+        if (map) goTo(map, at, 17, 1600);
       },
       () => setMessage('The parchment could not find you. Allow location access, or search for your street instead.'),
       { enableHighAccuracy: true, timeout: 10000 },
@@ -567,9 +580,14 @@ export default function App() {
         <SearchBox onPick={onSearch} />
         <div className="top-actions">
           <button
-            className="icon-btn"
-            onClick={() => (sound ? setSound(false) : playMusic())} aria-pressed={sound} aria-label={sound ? 'Turn the music and sound off' : 'Play the music'} title={sound ? 'Music off' : 'Music on'}>
-            {sound ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
+            className="icon-btn music-btn"
+            onClick={toggleMusic}
+            aria-pressed={sound}
+            aria-label={sound ? 'Turn the music off' : 'Turn the music on'}
+            title={sound ? 'Turn the music off' : 'Turn the music on'}
+          >
+            <Music aria-hidden />
+            <span className="music-label">{sound ? 'Music on' : 'Music off'}</span>
           </button>
           <button className="icon-btn group-btn" onClick={() => setPanel((v) => !v)} aria-pressed={panel} aria-label={`Your group${badge ? `, ${badge} new` : ''}`} title="Your group">
             <Users aria-hidden />
@@ -589,6 +607,12 @@ export default function App() {
           <div ref={container} className="map" />
           {weather && <WeatherLayer sky={sky} />}
           {night && map && <CandleLight map={map} lights={lights} />}
+          {folding && (
+            <div className="fold-doors" aria-hidden>
+              <div className="door left" />
+              <div className="door right" />
+            </div>
+          )}
           <div className="grain" aria-hidden />
           <div className="vignette" aria-hidden />
           <p className="frame-text top" aria-hidden>
@@ -722,11 +746,6 @@ export default function App() {
         <Intro
           name={name}
           lock={lock}
-          music={music}
-          onMusic={(on) => {
-            setMusic(on);
-            remember('atlas-music', on ? '1' : '0');
-          }}
           onOpen={(n, newLock) => {
             if (newLock) {
               remember(LOCK_KEY, JSON.stringify(newLock));

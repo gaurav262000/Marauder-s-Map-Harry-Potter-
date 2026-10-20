@@ -57,10 +57,10 @@ function strings(ac: BaseAudioContext, out: AudioNode, notes: number[], t: numbe
 }
 
 /** Plays the theme on `ac` from time `at`; returns its length in seconds. */
-export function playTheme(ac: BaseAudioContext, at = ac.currentTime + 0.05, volume = 0.5): number {
+export function playTheme(ac: BaseAudioContext, at = ac.currentTime + 0.05, volume = 0.5, dest: AudioNode = ac.destination): number {
   const master = ac.createGain();
   master.gain.value = volume;
-  master.connect(ac.destination);
+  master.connect(dest);
   // a little echo for the stone hall the music plays in
   const echo = ac.createDelay(1);
   echo.delayTime.value = EIGHTH * 1.5;
@@ -162,24 +162,32 @@ export function wanderingTune(ac: BaseAudioContext, out: AudioNode, start: numbe
 
 let ctx: AudioContext | null = null;
 let music: { timer: ReturnType<typeof setInterval>; level: GainNode } | null = null;
+/** Everything the music plays goes through here, so one fade silences it all, the theme included. */
+let bus: GainNode | null = null;
+const out = () => {
+  ctx ??= new AudioContext();
+  void ctx.resume();
+  if (!bus) {
+    bus = ctx.createGain();
+    bus.connect(ctx.destination);
+  }
+  return { ac: ctx, bus };
+};
 
 /** Starts the theme now; call it from a click or tap so the browser lets it play. */
 export function theme() {
-  ctx ??= new AudioContext();
-  void ctx.resume();
-  return playTheme(ctx);
+  const { ac, bus } = out();
+  return playTheme(ac, ac.currentTime + 0.05, 0.5, bus);
 }
 
 /** Keeps quiet music playing until stopMusic(), starting `delay` seconds from now. */
 export function startMusic(delay = 0) {
-  ctx ??= new AudioContext();
-  void ctx.resume();
+  const { ac, bus } = out();
   if (music) return;
-  const ac = ctx;
   const level = ac.createGain();
   level.gain.setValueAtTime(0, ac.currentTime);
   level.gain.linearRampToValueAtTime(0.32, ac.currentTime + delay + 3);
-  level.connect(ac.destination);
+  level.connect(bus);
   const echo = ac.createDelay(1);
   echo.delayTime.value = SLOW * 1.5;
   const fb = ac.createGain();
@@ -196,12 +204,13 @@ export function startMusic(delay = 0) {
   music = { timer: setInterval(top, 500), level };
 }
 
+/** Fades out everything: the endless music and any theme still playing. */
 export function stopMusic() {
-  if (!music || !ctx) return;
-  const { timer, level } = music;
-  clearInterval(timer);
-  level.gain.cancelScheduledValues(ctx.currentTime);
-  level.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
-  setTimeout(() => level.disconnect(), 3000);
+  if (music) clearInterval(music.timer);
   music = null;
+  if (!bus || !ctx) return;
+  const gone = bus;
+  gone.gain.setTargetAtTime(0, ctx.currentTime, 0.25);
+  setTimeout(() => gone.disconnect(), 2000);
+  bus = null; // the next start gets a fresh one
 }

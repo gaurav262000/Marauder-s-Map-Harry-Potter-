@@ -888,4 +888,35 @@ button, input { font: inherit; color: inherit; }
 .fold-shade { opacity: 0; background: linear-gradient(90deg, rgba(40, 20, 5, 0.7), rgba(40, 20, 5, 0.2)); }
 .fold-half.right .fold-shade { background: linear-gradient(270deg, rgba(40, 20, 5, 0.7), rgba(40, 20, 5, 0.2)); }
 /* the back of the folded-over half: plain, older parchment */
+/* it turns itself round, so it covers the other half of the box until the fold carries it back */
+.fold-half.right > .fold-back { clip-path: inset(0 50% 0 0); }
 .fold-back { transform: rotateY(180deg); background: url('../assets/paper-grain.svg'), radial-gradient(ellipse at 30% 50%, #e2c792, #c29a5e); box-shadow: inset 0 0 50px rgba(100, 60, 20, 0.5); }
+
+/* ——— Music button: notes bob while it plays, a slash through it when off ——— */
+.music-btn { position: relative; }
+.music-btn[aria-pressed='true'] svg { color: var(--wax); animation: music-bob 0.8s ease-in-out infinite alternate; }
+.music-btn[aria-pressed='false']::after { content: ''; position: absolute; left: 50%; top: 50%; width: 26px; height: 2px; margin: -1px 0 0 -13px; border-radius: 1px; background: currentColor; box-shadow: 0 0 0 1.5px var(--desk); rotate: -45deg; pointer-events: none; }
+@keyframes music-bob { from { transform: translateY(1px) rotate(-6deg); } to { transform: translateY(-2px) rotate(6deg); } }
+.music-label { display: none; }
+@media (min-width: 900px) {
+  .music-btn { width: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; }
+  .music-btn[aria-pressed='false']::after { left: 22px; width: 22px; margin-left: -11px; }
+  .music-label { display: inline; font: italic 0.95rem var(--font-fell); }
+}
+@media (prefers-reduced-motion: reduce) { .music-btn[aria-pressed='true'] svg { animation: none; } }
+
+/* ——— Folding the map away: two halves of blank parchment swing shut over it ——— */
+.fold-doors { position: absolute; inset: 0; z-index: 6; perspective: 1600px; pointer-events: none; }
+.door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: url('../assets/paper-grain.svg'), radial-gradient(ellipse at 50% 40%, #f1dfb3 25%, #e2c792 65%, #c9a467);
+  box-shadow: inset 0 0 60px rgba(110, 65, 20, 0.45);
+  backface-visibility: hidden;
+}
+.door.left { left: 0; transform-origin: 0 50%; animation: door-left 0.95s cubic-bezier(0.3, 0.4, 0.4, 1) both; }
+.door.right { right: 0; transform-origin: 100% 50%; animation: door-right 0.95s cubic-bezier(0.3, 0.4, 0.4, 1) both; }
+@keyframes door-left { from { transform: rotateY(-100deg); filter: brightness(0.6); } to { transform: none; } }
+@keyframes door-right { from { transform: rotateY(100deg); filter: brightness(0.6); } to { transform: none; } }
