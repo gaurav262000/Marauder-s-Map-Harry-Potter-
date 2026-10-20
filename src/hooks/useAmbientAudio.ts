@@ -62,5 +62,28 @@ export function useAmbientAudio(enabled: boolean) {
     src.start();
   }, [enabled]);
 
-  return { rustle };
+  /** A quill scratching across paper: bursts of bright noise, one per stroke. */
+  const scratch = useCallback(() => {
+    const ac = ctx.current;
+    if (!enabled || !ac) return;
+    const len = ac.sampleRate * 1.2;
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    const stroke = ac.sampleRate * 0.09;
+    for (let i = 0; i < len; i++) {
+      const p = (i % stroke) / stroke;
+      d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * p) ** 2 * (Math.floor(i / stroke) % 3 === 2 ? 0.2 : 1);
+    }
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const hp = ac.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 3200;
+    const g = ac.createGain();
+    g.gain.value = 0.22;
+    src.connect(hp).connect(g).connect(ac.destination);
+    src.start();
+  }, [enabled]);
+
+  return { rustle, scratch };
 }

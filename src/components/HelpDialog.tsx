@@ -7,16 +7,26 @@ export function HelpDialog({ ref }: { ref: Ref<HTMLDialogElement> }) {
       <form method="dialog">
         <h2 id="help-title">Reading the Atlas</h2>
         <ul>
-          <li><b>Move</b> — drag the parchment, or use the arrow keys when the map is focused.</li>
-          <li><b>Zoom</b> — scroll, pinch, the + / − buttons, or the + and − keys.</li>
-          <li><b>Rooms</b> — click or tap a room to read about it; Tab through rooms and press Enter.</li>
-          <li><b>Find</b> — type in “Seek a place…” and choose a result.</li>
-          <li><b>Travel</b> — select a room, then “Navigate here”. Footprints walk the route from where you are.</li>
-          <li><b>Secrets</b> — the key button or Secrets mode reveals hidden passages and chambers.</li>
-          <li><b>Modes</b> — Explore, Secrets, Tracking (footprints prominent) and Clean (architecture only).</li>
+          <li><b>Move</b> — drag the parchment; scroll or pinch to zoom; right-drag or two-finger twist to turn it.</li>
+          <li><b>Find</b> — type any town, street or landmark in “Seek any place…” and press Enter.</li>
+          <li><b>Walk</b> — tap anywhere, then “Walk here”. Your footprints follow real footpaths from where you stand.</li>
+          <li><b>Appear</b> — “Appear here” moves you without walking; the target button finds where you really are.</li>
+          <li><b>Friends</b> — the people button starts or joins a group. Send the invite link; friends ask to join and you approve each one. Everyone approved who shares appears on the map with their name, footprints and where they are heading. Stop sharing or leave the group any time.</li>
+          <li><b>Wanderers</b> — zoom in to street level to see the residents of the parchment walking the streets.</li>
+          <li><b>Owl post</b> — in your group, tap “Owl” next to a friend to send a letter only they can read. An owl flies it across the map.</li>
+          <li><b>Secret notes</b> — tap a spot, then “Hide a secret note”. Your group sees a wax seal there; it opens only for someone standing within 50 m.</li>
+          <li><b>The cloak</b> — in the group panel, wear the cloak to vanish from your group for 30 minutes. You leave no footprints.</li>
+          <li><b>Candlelight</b> — the moon button darkens the map to candlelight around you, your friends and the wanderers. It comes on by itself after 7 pm.</li>
+          <li><b>Over water</b> — no footprints on water: you fly across on a broom.</li>
+          <li><b>Meeting place</b> — tap a spot, then “Meet here”. Everyone in your group sees the pennant and how far each person is; an owl tells you when a friend is close or has arrived.</li>
+          <li><b>The open field</b> — a public square in the group panel. Only people who step in see each other, nearby (about 10 km), with places rounded to about 100 m. You leave it by yourself after an hour.</li>
+          <li><b>Wand</b> — the wand button lets you draw a spell on the map: a circle for candlelight, a zigzag for the cloak, a flick upwards to find yourself.</li>
+          <li><b>Weather</b> — real rain, snow, fog and storms where the map is looking (from Open-Meteo).</li>
+          <li><b>Secret words</b> — lock the map on the opening page; it opens only with your words. Install it from your browser's menu (“Add to Home screen”) to use it like an app.</li>
         </ul>
+        <p className="help-fine">Map data © OpenStreetMap contributors, tiles by OpenFreeMap, search by Nominatim, walking routes by FOSSGIS OSRM.</p>
         <button className="btn primary" value="close">
-          <X aria-hidden /> Fold the parchment
+          <X aria-hidden /> Back to the map
         </button>
       </form>
     </dialog>
