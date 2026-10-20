@@ -1,6 +1,6 @@
 // Keeps the Atlas working on a poor connection: the app itself is fetched fresh when
 // possible and served from cache when not; map tiles and fonts already seen are reused.
-const APP = 'atlas-app-v1';
+const APP = 'atlas-app-v2';
 const TILES = 'atlas-tiles-v1';
 const MAX_TILES = 3000;
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png'];
@@ -42,7 +42,8 @@ async function cacheFirst(req) {
 async function networkFirst(req) {
   const c = await caches.open(APP);
   try {
-    const res = await fetch(req);
+    // the page itself is always revalidated, so a new version shows on the next visit
+    const res = await fetch(req, req.mode === 'navigate' ? { cache: 'no-cache' } : undefined);
     if (res.ok) await c.put(req, res.clone());
     return res;
   } catch {
