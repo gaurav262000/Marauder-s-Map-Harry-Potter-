@@ -1,4 +1,4 @@
-// The Atlas's own little theme: a music-box waltz in E minor, played on a synthesized
+// The Atlas's own music. The theme: a music-box waltz in E minor, played on a synthesized
 // celesta over soft strings. Original music, written for this map; no audio files.
 
 const EIGHTH = 0.24; // seconds; the waltz is in 3/8
@@ -87,10 +87,121 @@ export function playTheme(ac: BaseAudioContext, at = ac.currentTime + 0.05, volu
   return end - at + 2.5;
 }
 
+/** A plucked note, like a harp: a short bright attack fading quickly. */
+function harp(ac: BaseAudioContext, out: AudioNode, m: number, t: number, gain: number) {
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  const lp = ac.createBiquadFilter();
+  o.type = 'triangle';
+  o.frequency.value = hz(m);
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(4000, t);
+  lp.frequency.exponentialRampToValueAtTime(600, t + 0.8);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(gain, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+  o.connect(lp).connect(g).connect(out);
+  o.start(t);
+  o.stop(t + 1.7);
+}
+
+// ——— Endless music: the same mood, never quite the same tune ———
+// E harmonic minor; chords of four bars each: Em, C, Am, B.
+const SCALE = [52, 54, 55, 57, 59, 60, 63];
+const PROGRESSION = [
+  [40, 47, 55],
+  [36, 48, 55],
+  [33, 45, 52],
+  [35, 47, 54],
+];
+const SLOW = 0.32; // seconds per eighth; three to a bar
+const BAR = SLOW * 3;
+
+/** The scale note `i` steps up from the lowest, any number of octaves. */
+const degree = (i: number) => SCALE[((i % 7) + 7) % 7] + 12 * Math.floor(i / 7);
+
+export interface Wanderer {
+  /** Schedules everything that starts before `until`. */
+  fill(until: number): void;
+}
+
+/** A tune that wanders the scale, changing register (and instrument) every few phrases. */
+export function wanderingTune(ac: BaseAudioContext, out: AudioNode, start: number, rand = Math.random): Wanderer {
+  let t = start;
+  let bar = 0;
+  let step = 14; // where in the scale the tune is (E5)
+  let lift = 0; // octave shift of the current phrase
+  let voice = bell;
+  return {
+    fill(until) {
+      while (t < until) {
+        const chord = PROGRESSION[Math.floor(bar / 4) % 4];
+        if (bar % 4 === 0) strings(ac, out, chord, t, BAR * 4 * 0.9);
+        if (bar % 8 === 0) {
+          // a new phrase: a different height, sometimes a different instrument
+          lift = [-12, 0, 0, 12][Math.floor(rand() * 4)];
+          voice = rand() < 0.35 ? harp : bell;
+        }
+        for (let e = 0; e < 3; e++) {
+          if (bar % 8 === 7 && e > 0) break; // breathe at the end of a phrase
+          if (e > 0 && rand() < 0.3) continue;
+          step += [-2, -1, -1, 1, 1, 2, 0][Math.floor(rand() * 7)];
+          step = Math.max(9, Math.min(19, step));
+          let m = degree(step) + lift;
+          // on the downbeat, lean onto a note of the chord
+          if (e === 0) m = chord.map((c) => c + 24 + lift).concat(chord.map((c) => c + 36 + lift)).reduce((a, b) => (Math.abs(b - m) < Math.abs(a - m) ? b : a));
+          voice(ac, out, m, t + e * SLOW, e === 0 ? 0.13 : 0.09);
+        }
+        if (rand() < 0.08) bell(ac, out, degree(step) + 24, t + SLOW * 1.5, 0.03); // a stray sparkle
+        t += BAR;
+        bar++;
+      }
+    },
+  };
+}
+
 let ctx: AudioContext | null = null;
+let music: { timer: ReturnType<typeof setInterval>; level: GainNode } | null = null;
+
 /** Starts the theme now; call it from a click or tap so the browser lets it play. */
 export function theme() {
   ctx ??= new AudioContext();
   void ctx.resume();
   return playTheme(ctx);
+}
+
+/** Keeps quiet music playing until stopMusic(), starting `delay` seconds from now. */
+export function startMusic(delay = 0) {
+  ctx ??= new AudioContext();
+  void ctx.resume();
+  if (music) return;
+  const ac = ctx;
+  const level = ac.createGain();
+  level.gain.setValueAtTime(0, ac.currentTime);
+  level.gain.linearRampToValueAtTime(0.32, ac.currentTime + delay + 3);
+  level.connect(ac.destination);
+  const echo = ac.createDelay(1);
+  echo.delayTime.value = SLOW * 1.5;
+  const fb = ac.createGain();
+  fb.gain.value = 0.3;
+  echo.connect(fb).connect(echo);
+  echo.connect(level);
+  const voice = ac.createGain();
+  voice.connect(level);
+  voice.connect(echo);
+  const tune = wanderingTune(ac, voice, ac.currentTime + delay);
+  // schedule a couple of seconds ahead, topping up as time passes
+  const top = () => tune.fill(ac.currentTime + 2.5);
+  top();
+  music = { timer: setInterval(top, 500), level };
+}
+
+export function stopMusic() {
+  if (!music || !ctx) return;
+  const { timer, level } = music;
+  clearInterval(timer);
+  level.gain.cancelScheduledValues(ctx.currentTime);
+  level.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
+  setTimeout(() => level.disconnect(), 3000);
+  music = null;
 }

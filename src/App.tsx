@@ -21,15 +21,25 @@ import type { Member, Owl, SecretNote } from './lib/group.ts';
 import { LOCK_KEY, type Lock } from './lib/lock.ts';
 import { placeAt, walkingRoute, type Place } from './lib/services.ts';
 import type { Spell } from './lib/spells.ts';
-import { theme } from './lib/theme.ts';
+import { startMusic, stopMusic, theme } from './lib/theme.ts';
 import { coarse, SKY_WORDS, skyAt, type Sky } from './lib/weather.ts';
 import { flyOwl, portal } from './map/effects.ts';
 import { createFootprints, type Footprints } from './map/footprints.ts';
 import { provideImages } from './map/images.ts';
 import { LABEL_LAYERS, parchmentStyle } from './map/style.ts';
 
-/** King's Cross, London — a fitting place for a journey to begin. */
-const START: LngLat = [-0.12395, 51.53205];
+/** King's Cross, London — where a journey begins until the map knows where you are. */
+const KINGS_CROSS: LngLat = [-0.12395, 51.53205];
+const LAST_KEY = 'atlas-last-place';
+/** The map opens where you last were, so it doesn't jump across the world while GPS wakes up. */
+const START: LngLat = (() => {
+  try {
+    const v = JSON.parse(localStorage.getItem(LAST_KEY) ?? 'null');
+    return Array.isArray(v) && v.length === 2 && v.every(Number.isFinite) ? (v as LngLat) : KINGS_CROSS;
+  } catch {
+    return KINGS_CROSS;
+  }
+})();
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -473,11 +483,35 @@ export default function App() {
     if (whirl && map) void portal(map, at, 'in');
   };
 
+  /** The theme, then quiet music that wanders on until the sound is turned off. */
+  const playMusic = () => {
+    startMusic(theme() - 2);
+    setSound(true);
+  };
+  useEffect(() => {
+    if (!sound) stopMusic();
+  }, [sound]);
+
+  /** Opening the map, you appear where you really are (quietly staying put if the phone won't say). */
+  const findMeQuietly = () =>
+    navigator.geolocation?.getCurrentPosition(
+      (pos) => {
+        const at: LngLat = [pos.coords.longitude, pos.coords.latitude];
+        remember(LAST_KEY, JSON.stringify(at));
+        if (live.current.journey && !live.current.journey.arrived) return; // don't yank someone mid-walk
+        void appear(at, false);
+        map?.flyTo({ center: at, zoom: Math.max(map.getZoom(), 16), duration: reducedMotion() ? 0 : 1800 });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 },
+    );
+
   const locate = () => {
     if (!navigator.geolocation) return setMessage('This browser cannot tell where you are.');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const at: LngLat = [pos.coords.longitude, pos.coords.latitude];
+        remember(LAST_KEY, JSON.stringify(at));
         void appear(at, false);
         map?.flyTo({ center: at, zoom: 17, duration: reducedMotion() ? 0 : 1600 });
       },
@@ -517,7 +551,9 @@ export default function App() {
     setOpened(true);
     if (grp.invite || grp.requests.length) setPanel(true);
     rustle();
-    if (music) theme(); // the oath is a click, so the browser lets the music play
+    // the oath is a click, so the browser lets the music play: the theme, then music that goes on
+    if (music) playMusic();
+    findMeQuietly();
     // the map was sized while hidden behind the intro
     requestAnimationFrame(() => map?.resize());
   };
@@ -532,10 +568,7 @@ export default function App() {
         <div className="top-actions">
           <button
             className="icon-btn"
-            onClick={() => {
-              if (!sound) theme();
-              setSound((s) => !s);
-            }} aria-pressed={sound} aria-label={sound ? 'Mute ambient sound' : 'Play ambient sound'} title={sound ? 'Mute' : 'Ambient sound'}>
+            onClick={() => (sound ? setSound(false) : playMusic())} aria-pressed={sound} aria-label={sound ? 'Turn the music and sound off' : 'Play the music'} title={sound ? 'Music off' : 'Music on'}>
             {sound ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
           </button>
           <button className="icon-btn group-btn" onClick={() => setPanel((v) => !v)} aria-pressed={panel} aria-label={`Your group${badge ? `, ${badge} new` : ''}`} title="Your group">

@@ -1,4 +1,5 @@
-import { useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { splitOpen, unfold } from './fold.ts';
 import { makeLock, opens, type Lock } from '../lib/lock.ts';
 import { Quip } from './InkLetter.tsx';
 import { IntroBanner, IntroEmblem } from './IntroArt.tsx';
@@ -31,18 +32,24 @@ export function Intro({ name, lock, music, onMusic, onOpen, onForget }: Props) {
   const [words, setWords] = useState('');
   const [locking, setLocking] = useState(false);
   const [quip, setQuip] = useState<{ n: number; text: string } | null>(null);
+  const sheet = useRef<HTMLFormElement>(null);
+  useEffect(() => unfold(sheet.current!), []);
+  const go = (n: string, newLock?: Lock) => {
+    splitOpen(sheet.current!);
+    onOpen(n, newLock);
+  };
   const say = (list: string[]) => setQuip((q) => ({ n: (q?.n ?? 0) + 1, text: list[(q?.n ?? 0) % list.length] }));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!value.trim()) return say(QUIPS);
-    if (lock) return (await opens(lock, words)) ? onOpen(value.trim()) : say(WRONG);
-    onOpen(value.trim(), locking && words.trim() ? await makeLock(words) : undefined);
+    if (lock) return (await opens(lock, words)) ? go(value.trim()) : say(WRONG);
+    go(value.trim(), locking && words.trim() ? await makeLock(words) : undefined);
   };
 
   return (
     <div className="intro" role="dialog" aria-modal="true" aria-labelledby="intro-title">
-      <form className="intro-sheet" onSubmit={submit}>
+      <form className="intro-sheet" ref={sheet} onSubmit={submit}>
         <IntroBanner />
         <p className="intro-messrs ink-in" style={{ '--d': '0.5s' } as CSSProperties}>
           Messrs.
@@ -85,7 +92,7 @@ export function Intro({ name, lock, music, onMusic, onOpen, onForget }: Props) {
             </label>
           )}
           <label className="lock-choice">
-            <input type="checkbox" checked={music} onChange={(e) => onMusic(e.target.checked)} /> ♪ Play the music as the map opens
+            <input type="checkbox" checked={music} onChange={(e) => onMusic(e.target.checked)} /> ♪ Music
           </label>
           <p className="intro-fine">Your name appears only on your own map.</p>
         </div>

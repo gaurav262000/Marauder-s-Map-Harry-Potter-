@@ -36,7 +36,7 @@ The live site is at **https://enchantedatlas.in**: the workflow writes a `CNAME`
 - **Meeting place** — pick a spot for the group; everyone sees a pennant and each person's distance, and an owl brings word when a friend comes close or arrives.
 - **The open field** — an opt-in public square: people who step in see each other within about 10 km, positions rounded to about 100 m, signed so nobody can post as someone else. It switches itself off after an hour.
 - **Wand** — draw a spell on the map: a circle (candlelight), a zigzag (the cloak) or a flick upwards (find me).
-- **Music** — an original music-box waltz (celesta over soft strings, synthesized in the browser) plays as the map opens; switch it off on the opening page.
+- **Music** — an original music-box waltz (celesta over soft strings, synthesized in the browser) plays as the map opens, then quiet music wanders on endlessly, changing register and instrument (celesta or harp) every few phrases; the speaker button or the switch on the opening page turns it off.
 - **Weather** — live rain, snow, fog and storms over the parchment from [Open-Meteo](https://open-meteo.com). One call fetches two days of hourly weather for a ~50 km square, kept on the phone, so a visitor makes about one call a day; only that coarse position is sent.
 - **Secret words** — optionally lock the map with a phrase (a salted PBKDF2 hash kept in the browser; it keeps casual eyes off, it is not encryption).
 - **Install as an app** — a web app manifest and a service worker let it be added to the home screen and keep working on a poor connection with tiles already seen.
