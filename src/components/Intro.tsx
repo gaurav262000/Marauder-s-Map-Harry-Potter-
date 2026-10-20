@@ -17,12 +17,15 @@ interface Props {
   name: string;
   /** set when the map is locked with secret words */
   lock: Lock | null;
+  /** play the theme as the map opens */
+  music: boolean;
+  onMusic: (on: boolean) => void;
   onOpen: (name: string, lock?: Lock) => void;
   onForget: () => void;
 }
 
 /** The closed parchment: it opens only once the reader writes their name (and, if locked, the secret words). */
-export function Intro({ name, lock, onOpen, onForget }: Props) {
+export function Intro({ name, lock, music, onMusic, onOpen, onForget }: Props) {
   const [value, setValue] = useState(name);
   const [words, setWords] = useState('');
   const [locking, setLocking] = useState(false);
@@ -66,6 +69,9 @@ export function Intro({ name, lock, onOpen, onForget }: Props) {
             <input type="checkbox" checked={locking} onChange={(e) => setLocking(e.target.checked)} /> Lock this map with secret words
           </label>
         )}
+        <label className="lock-choice">
+          <input type="checkbox" checked={music} onChange={(e) => onMusic(e.target.checked)} /> ♪ Play the music as the map opens
+        </label>
         <p className="intro-fine">Your name appears only on your own map.</p>
       </form>
     </div>

@@ -21,6 +21,7 @@ import type { Member, Owl, SecretNote } from './lib/group.ts';
 import { LOCK_KEY, type Lock } from './lib/lock.ts';
 import { placeAt, walkingRoute, type Place } from './lib/services.ts';
 import type { Spell } from './lib/spells.ts';
+import { theme } from './lib/theme.ts';
 import { coarse, SKY_WORDS, skyAt, type Sky } from './lib/weather.ts';
 import { flyOwl, portal } from './map/effects.ts';
 import { createFootprints, type Footprints } from './map/footprints.ts';
@@ -100,6 +101,7 @@ export default function App() {
   const [lock, setLock] = useState(storedLock);
   const [wand, setWand] = useState(false);
   const [game, setGame] = useState(false);
+  const [music, setMusic] = useState(() => load('atlas-music') !== '0');
   const [weather, setWeather] = useState(true);
   const [sky, setSky] = useState<Sky>('clear');
   const grp = useGroup(map !== null, name);
@@ -515,6 +517,7 @@ export default function App() {
     setOpened(true);
     if (grp.invite || grp.requests.length) setPanel(true);
     rustle();
+    if (music) theme(); // the oath is a click, so the browser lets the music play
     // the map was sized while hidden behind the intro
     requestAnimationFrame(() => map?.resize());
   };
@@ -527,7 +530,12 @@ export default function App() {
         </h1>
         <SearchBox onPick={onSearch} />
         <div className="top-actions">
-          <button className="icon-btn" onClick={() => setSound((s) => !s)} aria-pressed={sound} aria-label={sound ? 'Mute ambient sound' : 'Play ambient sound'} title={sound ? 'Mute' : 'Ambient sound'}>
+          <button
+            className="icon-btn"
+            onClick={() => {
+              if (!sound) theme();
+              setSound((s) => !s);
+            }} aria-pressed={sound} aria-label={sound ? 'Mute ambient sound' : 'Play ambient sound'} title={sound ? 'Mute' : 'Ambient sound'}>
             {sound ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
           </button>
           <button className="icon-btn group-btn" onClick={() => setPanel((v) => !v)} aria-pressed={panel} aria-label={`Your group${badge ? `, ${badge} new` : ''}`} title="Your group">
@@ -681,6 +689,11 @@ export default function App() {
         <Intro
           name={name}
           lock={lock}
+          music={music}
+          onMusic={(on) => {
+            setMusic(on);
+            remember('atlas-music', on ? '1' : '0');
+          }}
           onOpen={(n, newLock) => {
             if (newLock) {
               remember(LOCK_KEY, JSON.stringify(newLock));
