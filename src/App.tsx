@@ -593,7 +593,7 @@ export default function App() {
         </div>
 
         {wand && <Wand onSpell={castSpell} onDone={() => setWand(false)} />}
-        {game && <GoldenBird onClose={() => setGame(false)} />}
+        {game && <GoldenBird sound={sound} onClose={() => setGame(false)} />}
 
         <button ref={compass} className="compass" onClick={() => map?.resetNorth()} aria-label="Turn the map back to north" title="North">
           <svg viewBox="-50 -50 100 100" aria-hidden>
