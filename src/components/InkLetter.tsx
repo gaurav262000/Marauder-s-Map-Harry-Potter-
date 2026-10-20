@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { scratch } from '../lib/sfx.ts';
 
 interface Props {
   title: string;
@@ -40,9 +41,12 @@ export function InkLetter({ title, text, onClose, onReply, children }: Props) {
   );
 }
 
-/** The map answering back, in its own hand. */
-export const Quip = ({ children }: { children: ReactNode }) => (
-  <p className="quip ink-write" role="status">
-    {children}
-  </p>
-);
+/** The map answering back, in its own hand (you can hear the quill). */
+export function Quip({ children }: { children: ReactNode }) {
+  useEffect(() => scratch(6), []);
+  return (
+    <p className="quip ink-write" role="status">
+      {children}
+    </p>
+  );
+}

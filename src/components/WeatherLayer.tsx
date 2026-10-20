@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { thunder } from '../lib/sfx.ts';
 import type { Sky } from '../lib/weather.ts';
 
 const DROPS: Partial<Record<Sky, number>> = { drizzle: 70, rain: 160, storm: 220, snow: 120 };
@@ -51,7 +52,10 @@ export function WeatherLayer({ sky }: { sky: Sky }) {
         }
       }
       if (sky === 'storm') {
-        if (flash <= 0 && Math.random() < 0.004) flash = 1;
+        if (flash <= 0 && Math.random() < 0.004) {
+          flash = 1;
+          setTimeout(thunder, 400 + Math.random() * 1500); // light first, then the rumble
+        }
         if (flash > 0) {
           ctx.fillStyle = `rgba(255, 250, 230, ${0.45 * flash})`;
           ctx.fillRect(0, 0, w, h);

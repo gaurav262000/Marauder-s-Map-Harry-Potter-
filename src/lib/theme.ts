@@ -1,6 +1,8 @@
 // The Atlas's own music. The theme: a music-box waltz in E minor, played on a synthesized
 // celesta over soft strings. Original music, written for this map; no audio files.
 
+import { audio } from './sfx.ts';
+
 const EIGHTH = 0.24; // seconds; the waltz is in 3/8
 
 // [midi note, length in eighths]; 0 is a rest
@@ -160,18 +162,16 @@ export function wanderingTune(ac: BaseAudioContext, out: AudioNode, start: numbe
   };
 }
 
-let ctx: AudioContext | null = null;
 let music: { timer: ReturnType<typeof setInterval>; level: GainNode } | null = null;
 /** Everything the music plays goes through here, so one fade silences it all, the theme included. */
 let bus: GainNode | null = null;
 const out = () => {
-  ctx ??= new AudioContext();
-  void ctx.resume();
+  const ac = audio();
   if (!bus) {
-    bus = ctx.createGain();
-    bus.connect(ctx.destination);
+    bus = ac.createGain();
+    bus.connect(ac.destination);
   }
-  return { ac: ctx, bus };
+  return { ac, bus };
 };
 
 /** Starts the theme now; call it from a click or tap so the browser lets it play. */
@@ -208,9 +208,9 @@ export function startMusic(delay = 0) {
 export function stopMusic() {
   if (music) clearInterval(music.timer);
   music = null;
-  if (!bus || !ctx) return;
+  if (!bus) return;
   const gone = bus;
-  gone.gain.setTargetAtTime(0, ctx.currentTime, 0.25);
+  gone.gain.setTargetAtTime(0, audio().currentTime, 0.25);
   setTimeout(() => gone.disconnect(), 2000);
   bus = null; // the next start gets a fresh one
 }

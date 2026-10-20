@@ -1,4 +1,5 @@
 import { useRef, useState, type PointerEvent } from 'react';
+import * as sfx from '../lib/sfx.ts';
 import { readStroke, type Pt, type Spell } from '../lib/spells.ts';
 
 const WORDS: Record<Spell, string> = { circle: 'Candlelight!', zigzag: 'The cloak!', up: 'Find me!' };
@@ -19,6 +20,8 @@ export function Wand({ onSpell, onDone }: { onSpell: (s: Spell) => boolean; onDo
     drawing.current = false;
     const spell = readStroke(pts);
     const worked = spell !== null && onSpell(spell);
+    if (worked) sfx.spell();
+    else sfx.fizzle();
     setWord(spell && worked ? WORDS[spell] : 'Nothing happens. Try a circle, a zigzag or a flick upwards.');
     setTimeout(() => (worked ? onDone() : (setPts([]), setWord(null))), worked ? 900 : 1800);
   };
@@ -36,7 +39,11 @@ export function Wand({ onSpell, onDone }: { onSpell: (s: Spell) => boolean; onDo
           setWord(null);
           setPts([at(e)]);
         }}
-        onPointerMove={(e) => drawing.current && setPts((p) => [...p, at(e)])}
+        onPointerMove={(e) => {
+          if (!drawing.current) return;
+          setPts((p) => [...p, at(e)]);
+          if (Math.random() < 0.06) sfx.sparkle(0.012); // the wand fizzes as it draws
+        }}
         onPointerUp={end}
         onPointerCancel={end}
       >

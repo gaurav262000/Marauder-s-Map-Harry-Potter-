@@ -21,6 +21,7 @@ import type { Member, Owl, SecretNote } from './lib/group.ts';
 import { LOCK_KEY, type Lock } from './lib/lock.ts';
 import { placeAt, walkingRoute, type Place } from './lib/services.ts';
 import type { Spell } from './lib/spells.ts';
+import * as sfx from './lib/sfx.ts';
 import { startMusic, stopMusic, theme } from './lib/theme.ts';
 import { coarse, SKY_WORDS, skyAt, type Sky } from './lib/weather.ts';
 import { flyOwl, portal } from './map/effects.ts';
@@ -134,7 +135,9 @@ export default function App() {
   const helpRef = useRef<HTMLDialogElement>(null);
   const fp = useRef<Footprints | null>(null);
   const popupEl = useRef<HTMLDivElement>(document.createElement('div'));
-  const { rustle, scratch } = useAmbientAudio(sound);
+  useAmbientAudio(sound);
+  useEffect(() => sfx.setSounds(sound), [sound]);
+  const lastStep = useRef(0);
 
   // ——— Map lifecycle ———
   useEffect(() => {
@@ -155,7 +158,23 @@ export default function App() {
         start: START,
         name: storedName() || 'A Wanderer',
         reducedMotion: reducedMotion(),
-        onArrive: () => setJourney((j) => j && { ...j, arrived: true }),
+        onArrive: () => {
+          setJourney((j) => j && { ...j, arrived: true });
+          sfx.chime([76, 81, 84]);
+        },
+        onStep: ({ you, left, flying, takeOff }) => {
+          if (takeOff) {
+            sfx.whoosh(1.3, 0.3);
+            sfx.sparkle();
+            return;
+          }
+          // footsteps come quick at a run; let them patter, but not blur into a hiss
+          const now = performance.now();
+          if (now - lastStep.current < 130) return;
+          lastStep.current = now;
+          if (!flying) sfx.step(left ? -1 : 1, !you);
+          else if (Math.random() < 0.35) sfx.sparkle(0.015);
+        },
       });
       lights.current = () => fp.current?.lights() ?? [];
       // names are written in once the map is opened
@@ -202,6 +221,7 @@ export default function App() {
   }, [map, cloaked, cloakedUntil]);
 
   const toggleCloak = () => {
+    sfx.shimmer(!cloaked);
     if (cloaked) return setCloakedUntil(0);
     groupRef.current?.hide();
     setCloakedUntil(Date.now() + CLOAK_MS);
@@ -214,15 +234,17 @@ export default function App() {
     if (!map || !fp.current || !opened || !nextOwl || reading || landing.current === nextOwl) return;
     landing.current = nextOwl;
     const from = members[nextOwl.from]?.at ?? (map.unproject([map.getContainer().clientWidth + 60, 0]).toArray() as LngLat);
+    sfx.owl();
     void flyOwl(map, from, fp.current.you()).then(() => {
-      scratch();
+      sfx.scratch();
       setReading({ owl: nextOwl });
     });
-  }, [map, opened, nextOwl, reading, members, scratch]);
+  }, [map, opened, nextOwl, reading, members]);
 
   const sendOwl = async (to: { id: string; at?: LngLat }, text: string) => {
     if (!(await grp.sendOwl(to.id, text))) return setMessage('This owl cannot find its way yet. Ask the group owner to open the map once, then try again.');
     if (window.matchMedia('(max-width: 760px)').matches) setPanel(false); // the panel would hide the owl
+    sfx.owl();
     if (map && fp.current) void flyOwl(map, fp.current.you(), to.at ?? (map.unproject([map.getContainer().clientWidth + 60, 0]).toArray() as LngLat));
   };
 
@@ -238,8 +260,13 @@ export default function App() {
   const openSeal = useRef<(n: SecretNote) => void>(() => {});
   openSeal.current = (n) => {
     const here = live.current.fix ?? fp.current?.you();
-    if (n.from === ME_ID || (here && distance(here, n.at) <= NEAR_M)) setReading({ note: n });
-    else setMessage(`A note sealed by ${n.name}. Stand within ${NEAR_M} m of it to break the seal.`);
+    if (n.from === ME_ID || (here && distance(here, n.at) <= NEAR_M)) {
+      sfx.crack();
+      setReading({ note: n });
+    } else {
+      sfx.knock(1);
+      setMessage(`A note sealed by ${n.name}. Stand within ${NEAR_M} m of it to break the seal.`);
+    }
   };
   useEffect(() => {
     if (!map) return;
@@ -283,11 +310,12 @@ export default function App() {
       const n = here && notes.find((n) => n.from !== ME_ID && !read.includes(n.key) && distance(here, n.at) <= NEAR_M);
       if (!n) return;
       remember('atlas-notes-read', JSON.stringify([...read, n.key]));
-      scratch();
+      sfx.crack();
+      sfx.scratch();
       setReading({ note: n });
     }, 1500);
     return () => clearInterval(t);
-  }, [notes, reading, opened, scratch]);
+  }, [notes, reading, opened]);
 
   // ——— The tapped-spot note, rendered by React inside a MapLibre popup ———
   const noteAt = note?.at;
@@ -410,7 +438,7 @@ export default function App() {
       const news = now.there && !was.there ? `${m.name} has reached ${meeting!.text}.` : now.close && !was.close ? `${m.name} is close — ${Math.round(d)} m away.` : null;
       if (!news) continue;
       setMessage(news);
-      scratch();
+      sfx.owl();
       void flyOwl(map, m.at, here);
     }
   }, [map, members, meeting, opened]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -434,6 +462,15 @@ export default function App() {
       clearInterval(t);
     };
   }, [map, weather]);
+
+  // A knock at the door when someone asks to join; rain you can hear.
+  const asking = grp.requests.length;
+  const asked = useRef(asking);
+  useEffect(() => {
+    if (asking > asked.current) sfx.knock();
+    asked.current = asking;
+  }, [asking]);
+  useEffect(() => sfx.rain(weather && sound ? ({ drizzle: 0.4, rain: 0.8, storm: 1 } as Partial<Record<Sky, number>>)[sky] ?? 0 : 0), [weather, sound, sky]);
 
   // ——— Wand ———
   const castSpell = (s: Spell) => {
@@ -486,13 +523,20 @@ export default function App() {
   const appear = async (at: LngLat, whirl = true) => {
     clearJourney();
     setNote(null);
-    if (whirl && map && fp.current) await portal(map, fp.current.you(), 'out');
+    if (whirl && map && fp.current) {
+      sfx.swirl('out');
+      await portal(map, fp.current.you(), 'out');
+    }
     fp.current?.setYou(at);
-    if (whirl && map) void portal(map, at, 'in');
+    if (whirl && map) {
+      sfx.swirl('in');
+      void portal(map, at, 'in');
+    }
   };
 
   /** The theme, then quiet music that wanders on until the sound is turned off. */
   const playMusic = () => {
+    sfx.setSounds(true); // at once, so the sounds of this very click are heard
     startMusic(theme() - 2);
     setSound(true);
   };
@@ -538,6 +582,7 @@ export default function App() {
     const opts = { duration: reducedMotion() ? 0 : 1800 };
     if (p.bbox) map.fitBounds(p.bbox, { ...opts, maxZoom: 17, padding: 40 });
     else map.flyTo({ ...opts, center: p.at, zoom: 17 });
+    sfx.whoosh(1.4, 0.16);
     setNote({ at: p.at, place: p });
   };
 
@@ -546,7 +591,7 @@ export default function App() {
     setNote(null);
     if (reducedMotion()) return setOpened(false);
     setFolding(true);
-    rustle();
+    sfx.rustle();
     setTimeout(() => {
       setFolding(false);
       setOpened(false);
@@ -563,7 +608,7 @@ export default function App() {
     fp.current?.setYou(fp.current.you(), n);
     setOpened(true);
     if (grp.invite || grp.requests.length) setPanel(true);
-    rustle();
+    sfx.rustle();
     // the oath is a click, so the browser lets the music play: the theme, then music that goes on
     if (music) playMusic();
     findMeQuietly();
@@ -583,11 +628,11 @@ export default function App() {
             className="icon-btn music-btn"
             onClick={toggleMusic}
             aria-pressed={sound}
-            aria-label={sound ? 'Turn the music off' : 'Turn the music on'}
-            title={sound ? 'Turn the music off' : 'Turn the music on'}
+            aria-label={sound ? 'Turn music and sounds off' : 'Turn music and sounds on'}
+            title={sound ? 'Turn music and sounds off' : 'Turn music and sounds on'}
           >
             <Music aria-hidden />
-            <span className="music-label">{sound ? 'Music on' : 'Music off'}</span>
+            <span className="music-label">{sound ? 'Sound on' : 'Sound off'}</span>
           </button>
           <button className="icon-btn group-btn" onClick={() => setPanel((v) => !v)} aria-pressed={panel} aria-label={`Your group${badge ? `, ${badge} new` : ''}`} title="Your group">
             <Users aria-hidden />
@@ -643,7 +688,12 @@ export default function App() {
             <button className="ctl toggle" aria-pressed={wanderers} onClick={() => setWanderers((v) => !v)} aria-label="Wandering footprints" title={`${wanderers ? 'Hide' : 'Show'} wandering footprints`}>
               <FootIcon aria-hidden />
             </button>
-            <button className="ctl toggle" aria-pressed={night} onClick={() => setNight((v) => !v)} aria-label="Candlelight" title={night ? 'Daylight' : 'Candlelight'}>
+            <button className="ctl toggle" aria-pressed={night} onClick={() => {
+                if (!night) sfx.strike();
+                else sfx.whoosh(0.4, 0.1);
+                setNight((v) => !v);
+              }}
+              aria-label="Candlelight" title={night ? 'Daylight' : 'Candlelight'}>
               <Moon aria-hidden />
             </button>
             <button className="ctl toggle" aria-pressed={weather} onClick={() => setWeather((v) => !v)} aria-label="Live weather" title={weather ? SKY_WORDS[sky] : 'Show the weather'}>
@@ -659,7 +709,7 @@ export default function App() {
         </div>
 
         {wand && <Wand onSpell={castSpell} onDone={() => setWand(false)} />}
-        {game && <GoldenBird sound={sound} onClose={() => setGame(false)} />}
+        {game && <GoldenBird onClose={() => setGame(false)} />}
 
         <button ref={compass} className="compass" onClick={() => map?.resetNorth()} aria-label="Turn the map back to north" title="North">
           <svg viewBox="-50 -50 100 100" aria-hidden>
@@ -726,7 +776,10 @@ export default function App() {
           youAt={fp.current?.you() ?? START}
           onCreate={grp.create}
           onJoin={grp.join}
-          onApprove={grp.approve}
+          onApprove={(r) => {
+            sfx.stamp();
+            void grp.approve(r);
+          }}
           onDecline={grp.decline}
           onRemove={grp.remove}
           onToggleShare={grp.toggleShare}
@@ -739,7 +792,10 @@ export default function App() {
           onClearMeeting={() => void grp.clearMeeting()}
           fieldUntil={fieldOn ? fieldUntil : 0}
           fieldPeople={strangers.length}
-          onField={(on) => setFieldUntil(on ? Date.now() + FIELD_MS : 0)}
+          onField={(on) => {
+            if (on) sfx.chime([72, 76, 79, 84]);
+            setFieldUntil(on ? Date.now() + FIELD_MS : 0);
+          }}
           onClose={() => setPanel(false)}
         />
       )}
@@ -805,6 +861,7 @@ export default function App() {
                 ? async () => {
                     const place = note.place ?? (await placeAt(note.at).catch(() => null));
                     setNote(null);
+                    sfx.stamp();
                     if (!(await grp.setMeeting(note.at, place?.name ?? 'the marked spot'))) setMessage('The map is not connected yet. Try again in a moment.');
                   }
                 : undefined
@@ -812,6 +869,8 @@ export default function App() {
             onLeaveNote={
               inGroup
                 ? async (text) => {
+                    sfx.scratch();
+                    sfx.stamp();
                     const ok = await grp.leaveNote(note.at, text);
                     setNote(null);
                     setMessage(ok ? 'Your note is sealed here. Friends will read it when they stand on this spot.' : 'The map is not connected yet. Try again in a moment.');

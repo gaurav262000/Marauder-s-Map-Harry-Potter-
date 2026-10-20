@@ -18,6 +18,8 @@ interface Print {
 interface Walker {
   name: string;
   you: boolean;
+  kind: Kind;
+  flying: boolean;
   t: Track | null;
   s: number;
   /** screen pixels per second */
@@ -79,11 +81,26 @@ function tag(name: string, kind: Kind) {
  */
 export function createFootprints(
   map: MapLibre,
-  { start, name, reducedMotion, onArrive }: { start: LngLat; name: string; reducedMotion: boolean; onArrive: () => void },
+  {
+    start,
+    name,
+    reducedMotion,
+    onArrive,
+    onStep,
+  }: {
+    start: LngLat;
+    name: string;
+    reducedMotion: boolean;
+    onArrive: () => void;
+    /** each print you or a friend leaves; `takeOff` on the first one over water */
+    onStep?: (e: { you: boolean; left: boolean; flying: boolean; takeOff: boolean }) => void;
+  },
 ): Footprints {
   const make = (n: string, kind: Kind, at: LngLat): Walker => ({
     name: n,
     you: kind === 'you',
+    kind,
+    flying: false,
     t: null,
     s: 0,
     speed: kind === 'you' ? 110 : 30 + Math.random() * 20,
@@ -116,6 +133,8 @@ export function createFootprints(
     const flying = overWater(at);
     w.marker.getElement().classList.toggle('is-flying', flying);
     w.left = !w.left;
+    if (w.kind === 'you' || w.kind === 'friend') onStep?.({ you: w.you, left: w.left, flying, takeOff: flying && !w.flying });
+    w.flying = flying;
     w.prints.unshift({ at: flying ? at : offset(at, brg + (w.left ? -90 : 90), SIDE_PX * mpp()), bearing: brg, flying });
     if (w.prints.length > PRINTS) w.prints.length = PRINTS;
     dirty = true;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import * as sfx from '../lib/sfx.ts';
 import { Quip } from './InkLetter.tsx';
 
 const ROUND_S = 60;
@@ -64,7 +65,7 @@ const BIRD = `<svg viewBox="-30 -20 60 40" aria-hidden="true">
  * A one-minute game: a golden bird darts about the parchment. Tap it to catch it;
  * every catch makes it quicker. The best score stays on this phone.
  */
-export function GoldenBird({ sound, onClose }: { sound: boolean; onClose: () => void }) {
+export function GoldenBird({ onClose }: { onClose: () => void }) {
   const field = useRef<HTMLDivElement>(null);
   const bird = useRef<HTMLButtonElement>(null);
   const [score, setScore] = useState(0);
@@ -75,7 +76,6 @@ export function GoldenBird({ sound, onClose }: { sound: boolean; onClose: () => 
   const bestBefore = useRef(best); // to tell a new best from a tie
   const [record, setRecord] = useState(false); // shown the moment the old best falls
   const escape = useRef(0); // seconds of panicked flight after a catch
-  const audio = useRef<AudioContext | null>(null);
   const rider = useRef<HTMLDivElement>(null);
   const flight = useRef({ x: 0, y: 0, left: false });
 
@@ -100,24 +100,7 @@ export function GoldenBird({ sound, onClose }: { sound: boolean; onClose: () => 
   };
   const over = left <= 0;
 
-  /** Bell-like notes, only when the map's sound is on. */
-  const ring = (notes: number[], gap = 0.07, gain = 0.12) => {
-    if (!sound) return;
-    const ac = (audio.current ??= new AudioContext());
-    notes.forEach((hz, i) => {
-      const t = ac.currentTime + i * gap;
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = 'triangle';
-      o.frequency.value = hz;
-      g.gain.setValueAtTime(gain, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-      o.connect(g).connect(ac.destination);
-      o.start(t);
-      o.stop(t + 0.65);
-    });
-  };
-  useEffect(() => () => void audio.current?.close(), []);
+
 
   useEffect(() => {
     const f = field.current!;
@@ -201,8 +184,9 @@ export function GoldenBird({ sound, onClose }: { sound: boolean; onClose: () => 
     f.append(pop);
     setTimeout(() => pop.remove(), 1200);
     // each catch rings a little higher
-    const base = 660 * 2 ** (Math.min(n, 12) / 12);
-    ring(MILESTONES[n] ? [base, base * 1.26, base * 1.5, base * 2] : [base, base * 1.5]);
+    const base = 76 + Math.min(n, 12);
+    sfx.chime(MILESTONES[n] ? [base, base + 4, base + 7, base + 12] : [base, base + 7], 0.07, 0.1);
+    sfx.whoosh(0.35, 0.12); // it bolts
     if (bestBefore.current > 0 && n === bestBefore.current + 1) celebrate();
   };
 
@@ -213,7 +197,8 @@ export function GoldenBird({ sound, onClose }: { sound: boolean; onClose: () => 
     setTimeout(() => setRecord(false), 2200);
     navigator.vibrate?.([40, 40, 90]);
     scatter(f, f.clientWidth / 2, f.clientHeight * 0.3, 40, 'gb-confetti', Math.min(f.clientWidth, 420) * 0.6);
-    ring([523, 659, 784, 1047, 1319], 0.11, 0.14);
+    sfx.chime([72, 76, 79, 84, 88], 0.11, 0.12);
+    sfx.sparkle(0.03);
   };
 
   // At the end of a record round: confetti once more.
