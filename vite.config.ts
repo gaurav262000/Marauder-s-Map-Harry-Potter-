@@ -13,15 +13,18 @@ const CONNECT = [
   'https://nominatim.openstreetmap.org',
   'https://routing.openstreetmap.de',
   'https://api.open-meteo.com',
+  'https://*.google-analytics.com', // visitor counts
+  'https://*.analytics.google.com',
+  'https://*.googletagmanager.com',
   ...BROKERS.split(',').map((u) => new URL(u).origin),
 ];
 
 const CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' https://*.googletagmanager.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   'font-src https://fonts.gstatic.com',
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   'child-src blob:',
