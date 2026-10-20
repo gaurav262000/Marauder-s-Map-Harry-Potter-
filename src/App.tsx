@@ -603,6 +603,7 @@ export default function App() {
       </header>
 
       <main className="stage">
+        <div className="sheet-shadow" aria-hidden />
         <div className="sheet">
           <div ref={container} className="map" />
           {weather && <WeatherLayer sky={sky} />}

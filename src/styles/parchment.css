@@ -920,3 +920,45 @@ button, input { font: inherit; color: inherit; }
 .door.right { right: 0; transform-origin: 100% 50%; animation: door-right 0.95s cubic-bezier(0.3, 0.4, 0.4, 1) both; }
 @keyframes door-left { from { transform: rotateY(-100deg); filter: brightness(0.6); } to { transform: none; } }
 @keyframes door-right { from { transform: rotateY(100deg); filter: brightness(0.6); } to { transform: none; } }
+
+/* ——— Torn, scorched edges for the map ———
+   The sheet's clip is busy with the ink-spread opening, so the tear is a mask: a solid middle
+   plus four jagged strips along the edges. The shadow is a separate blurred copy underneath,
+   so the moving map never has to redraw it. */
+.sheet, .sheet-shadow {
+  --tear-top: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 173 12' preserveAspectRatio='none'><path d='M0 12 L0.0 4.8 L5.0 7.0 L9.6 7.0 L14.8 5.4 L19.6 6.0 L25.6 3.9 L29.5 1.8 L35.6 2.8 L38.3 5.3 L45.2 6.1 L50.4 4.3 L53.0 4.5 L55.8 2.9 L59.4 1.2 L64.0 1.2 L70.2 1.3 L75.6 1.3 L81.1 1.2 L84.9 3.8 L91.8 5.6 L97.5 4.6 L101.1 3.5 L103.9 4.9 L108.2 6.7 L112.4 9.1 L118.7 6.5 L122.2 8.6 L126.8 9.5 L131.1 7.3 L136.4 8.7 L140.1 6.6 L144.1 9.0 L150.0 7.0 L153.6 4.9 L156.4 6.5 L159.7 6.8 L164.2 5.2 L170.0 3.3 L173 4.8 L173 12Z'/></svg>");
+  --tear-right: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 211' preserveAspectRatio='none'><path d='M0 0 L4.8 0.0 L2.8000000000000007 6.8 L2.5 9.6 L2.5 14.1 L4.1 17.1 L5.6 21.6 L8.0 26.2 L6.9 29.1 L6.9 33.5 L7.6 39.3 L6.1 42.0 L5.3 47.2 L2.9000000000000004 52.5 L2.5 56.6 L2.5 60.8 L3.5 66.2 L3.5999999999999996 69.1 L3.0999999999999996 74.9 L2.5 79.4 L4.2 82.7 L2.5 86.6 L4.5 90.0 L6.9 93.0 L6.6 96.7 L7.4 102.9 L8.5 107.1 L7.1 110.9 L8.3 115.9 L6.9 118.9 L5.2 124.6 L4.9 128.1 L4.4 134.8 L6.2 141.5 L8.5 148.4 L10.8 152.8 L9.8 158.9 L8.2 165.8 L8.0 172.6 L6.7 179.5 L4.3 183.6 L5.9 187.8 L6.1 190.6 L3.8000000000000007 194.0 L5.3 200.8 L5.1 203.8 L4.9 207.0 L4.8 211 L0 211Z'/></svg>");
+  --tear-bottom: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 157 12' preserveAspectRatio='none'><path d='M0 0 L0.0 6.1 L2.9 5.4 L9.2 3.6999999999999993 L14.0 3.0 L18.2 2.9000000000000004 L21.2 2.5 L26.4 3.5999999999999996 L30.6 2.5 L35.1 2.5 L41.9 2.5 L44.8 4.7 L48.6 5.4 L54.3 3.6999999999999993 L59.4 3.0 L64.4 5.4 L69.3 6.9 L73.7 9.5 L79.1 7.3 L81.9 6.9 L84.5 7.7 L87.8 5.8 L93.5 3.8000000000000007 L97.0 2.5999999999999996 L102.7 2.5999999999999996 L109.3 2.5 L113.1 2.5 L117.7 4.0 L123.0 6.3 L127.5 6.0 L130.0 5.3 L132.9 4.5 L137.0 6.9 L144.0 9.2 L147.2 9.2 L150.8 9.0 L155.4 8.6 L157 6.1 L157 0Z'/></svg>");
+  --tear-left: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 191' preserveAspectRatio='none'><path d='M12 0 L3.7 0.0 L1.9 4.8 L1.2 11.0 L3.4 15.9 L5.8 20.2 L6.1 26.0 L6.5 31.4 L9.1 35.5 L9.5 39.8 L7.0 46.1 L6.9 49.8 L5.3 56.0 L4.6 61.2 L6.8 67.3 L5.2 73.2 L4.9 79.1 L4.7 85.4 L7.2 92.0 L8.9 98.2 L9.4 104.4 L9.5 107.6 L7.0 112.2 L6.5 116.7 L8.9 120.1 L9.5 123.1 L7.8 128.1 L7.6 132.2 L8.9 135.2 L9.5 140.6 L9.5 146.9 L9.5 153.9 L9.5 159.3 L9.5 164.1 L9.5 170.8 L7.0 177.1 L4.9 181.4 L5.3 186.6 L3.7 191 L12 191Z'/></svg>");
+  -webkit-mask: linear-gradient(#000, #000) center / calc(100% - 18px) calc(100% - 18px) no-repeat, var(--tear-top) top left / 173px 12px repeat-x, var(--tear-bottom) bottom left / 157px 12px repeat-x, var(--tear-left) top left / 12px 191px repeat-y, var(--tear-right) top right / 12px 211px repeat-y;
+  mask: linear-gradient(#000, #000) center / calc(100% - 18px) calc(100% - 18px) no-repeat, var(--tear-top) top left / 173px 12px repeat-x, var(--tear-bottom) bottom left / 157px 12px repeat-x, var(--tear-left) top left / 12px 191px repeat-y, var(--tear-right) top right / 12px 211px repeat-y;
+}
+.sheet { box-shadow: none; }
+.sheet-shadow {
+  position: absolute;
+  inset: 0 12px 12px;
+  background: rgba(8, 3, 0, 0.85);
+  filter: blur(9px);
+  translate: 3px 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.2s ease 0.4s;
+}
+.is-open .sheet-shadow { opacity: 1; }
+/* scorched, darker edges just inside the tear, with a few deeper burns */
+.vignette {
+  box-shadow: inset 0 0 0 2px rgba(70, 38, 10, 0.35), inset 0 0 26px rgba(70, 35, 8, 0.6), inset 0 0 140px rgba(70, 36, 8, 0.55);
+}
+.vignette::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 9% 6% at 0% 22%, rgba(60, 28, 6, 0.45), transparent),
+    radial-gradient(ellipse 7% 9% at 100% 64%, rgba(60, 28, 6, 0.4), transparent),
+    radial-gradient(ellipse 12% 5% at 38% 100%, rgba(60, 28, 6, 0.4), transparent),
+    radial-gradient(ellipse 8% 5% at 81% 0%, rgba(60, 28, 6, 0.35), transparent),
+    radial-gradient(ellipse 14% 10% at 70% 30%, rgba(120, 75, 25, 0.12), transparent),
+    radial-gradient(ellipse 10% 8% at 20% 75%, rgba(120, 75, 25, 0.1), transparent);
+}
+@media (max-width: 760px) { .sheet-shadow { inset: 0 6px 6px; } }
