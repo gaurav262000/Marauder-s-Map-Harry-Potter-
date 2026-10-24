@@ -91,6 +91,7 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
     const b = bird.current!;
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     caught.current = 0;
+    sfx.whoosh(0.8, 0.2); // off it goes
     let x = f.clientWidth / 2;
     let y = f.clientHeight / 2;
     let tx = x;
@@ -146,7 +147,7 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
     const n = ++caught.current;
     setScore(n);
     escape.current = 0.45;
-    navigator.vibrate?.(25);
+    sfx.buzz(MILESTONES[n] ? [30, 30, 60] : 25);
     const f = field.current!;
     const r = f.getBoundingClientRect();
     const x = e.clientX - r.left;
@@ -179,16 +180,23 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
     const f = field.current!;
     setRecord(true);
     setTimeout(() => setRecord(false), 2200);
-    navigator.vibrate?.([40, 40, 90]);
+    sfx.buzz([40, 40, 90]);
     scatter(f, f.clientWidth / 2, f.clientHeight * 0.3, 40, 'gb-confetti', Math.min(f.clientWidth, 420) * 0.6);
-    sfx.chime([72, 76, 79, 84, 88], 0.11, 0.12);
-    sfx.sparkle(0.03);
+    sfx.fanfare();
   };
 
-  // At the end of a record round: confetti once more.
+  // The last seconds tick away.
   useEffect(() => {
-    if (!over || score <= bestBefore.current || !field.current) return;
+    if (left > 0 && left <= 5) sfx.tick(left === 1);
+  }, [left]);
+
+  // Time is up: a short phrase, or for a record round confetti and a fanfare once more.
+  useEffect(() => {
+    if (!over) return;
+    sfx.buzz([80, 50, 160]);
+    if (score <= bestBefore.current || !field.current) return sfx.gameOver();
     const f = field.current;
+    sfx.fanfare();
     scatter(f, f.clientWidth / 2, f.clientHeight * 0.45, 50, 'gb-confetti', Math.min(f.clientWidth, 420) * 0.7);
   }, [over, score]);
 

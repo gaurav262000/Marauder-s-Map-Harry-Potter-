@@ -10,6 +10,7 @@ export interface Thing {
   vy?: number; // owls drift up and down
   done?: boolean; // an orb already caught
   doneAt?: number; // when it was caught (seconds into the race)
+  lit?: boolean; // a storm's lightning is striking
 }
 
 /** Does a circle (the rider) touch a box? */

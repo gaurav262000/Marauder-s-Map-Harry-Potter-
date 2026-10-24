@@ -204,6 +204,11 @@ export function startMusic(delay = 0) {
   music = { timer: setInterval(top, 500), level };
 }
 
+/** Turns the music down (during a game, so its sounds come through) or back up. */
+export function quietMusic(quiet: boolean) {
+  bus?.gain.setTargetAtTime(quiet ? 0.35 : 1, audio().currentTime, 0.4);
+}
+
 /** Fades out everything: the endless music and any theme still playing. */
 export function stopMusic() {
   if (music) clearInterval(music.timer);

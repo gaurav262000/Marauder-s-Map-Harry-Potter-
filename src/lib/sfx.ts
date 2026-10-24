@@ -16,7 +16,10 @@ export function audio(): AudioContext {
 
 export const setSounds = (on: boolean) => {
   enabled = on;
-  if (!on) rain(0);
+  if (!on) {
+    rain(0);
+    wind(0);
+  }
 };
 
 function out() {
@@ -143,9 +146,9 @@ export function owl(flightMs = 2600) {
   hoot(s - 0.1);
 }
 
-export function hoot(at = 0) {
-  tone({ at, freq: 410, freqTo: 370, dur: 0.35, gain: 0.08 });
-  tone({ at: at + 0.45, freq: 420, freqTo: 360, dur: 0.6, gain: 0.07 });
+export function hoot(at = 0, loud = 1) {
+  tone({ at, freq: 410, freqTo: 370, dur: 0.35, gain: 0.08 * loud });
+  tone({ at: at + 0.45, freq: 420, freqTo: 360, dur: 0.6, gain: 0.07 * loud });
 }
 
 /** The ink whirlpool: a falling swirl going out, a rising one coming in. */
@@ -200,6 +203,90 @@ export function fizzle() {
 export function thunder() {
   burst({ dur: 2.6, gain: 0.9, type: 'lowpass', freq: 160, q: 0.6, attack: 0.08 });
   burst({ at: 0.05, dur: 0.6, gain: 0.35, type: 'lowpass', freq: 600, q: 0.5 });
+}
+
+// ——— the games ———
+
+/** A buzz in the hand, on phones that allow it (iPhones' browsers don't let pages vibrate). */
+export function buzz(pattern: number | number[]) {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    /* not allowed here */
+  }
+}
+
+/** A heavy bump: a low thud with a crunch on top. */
+export function bump() {
+  tone({ freq: 120, freqTo: 45, dur: 0.35, gain: 0.45 });
+  burst({ dur: 0.25, gain: 0.3, type: 'lowpass', freq: 900, freqTo: 200, q: 0.8 });
+  burst({ at: 0.02, dur: 0.12, gain: 0.12, type: 'highpass', freq: 3000, q: 0.6 });
+}
+
+/** A crack of lightning, not too close. */
+export function zap(gain = 0.18) {
+  burst({ dur: 0.12, gain, type: 'highpass', freq: 2500, q: 0.5, attack: 0.002 });
+  burst({ at: 0.05, dur: 0.9, gain: gain * 1.6, type: 'lowpass', freq: 220, q: 0.6, attack: 0.04 });
+}
+
+/** A golden orb caught: a bright rising pair of notes, a little higher each time. */
+export function coin(n = 0) {
+  const m = 84 + Math.min(n, 10);
+  chime([m, m + 7, m + 12], 0.05, 0.09);
+  sparkle(0.035);
+}
+
+/** Off the broom: a falling whistle, then the ground. */
+export function fall() {
+  tone({ freq: 1100, freqTo: 160, dur: 1.1, gain: 0.09, type: 'triangle' });
+  tone({ at: 1.05, freq: 90, freqTo: 40, dur: 0.4, gain: 0.5 });
+  burst({ at: 1.05, dur: 0.35, gain: 0.3, type: 'lowpass', freq: 700, freqTo: 150, q: 0.7 });
+}
+
+/** The end of a round: a short falling phrase. */
+export function gameOver() {
+  chime([76, 72, 69, 64], 0.16, 0.13);
+}
+
+/** A new best: a little fanfare. */
+export function fanfare() {
+  chime([72, 76, 79, 84, 88, 91], 0.1, 0.12);
+  sparkle(0.04);
+}
+
+/** A clock's tick for the last seconds of a round. */
+export function tick(last = false) {
+  tone({ freq: last ? 1320 : 990, dur: 0.06, gain: 0.12, type: 'square' });
+}
+
+let windLoop: { src: AudioBufferSourceNode; f: BiquadFilterNode; g: GainNode } | null = null;
+/** Wind rushing past the broom: 0 stops it, up to 1 at full speed (louder, and higher). */
+export function wind(level: number) {
+  if (!level || !enabled) {
+    if (windLoop && ctx) {
+      const { src, g } = windLoop;
+      g.gain.setTargetAtTime(0, ctx.currentTime, 0.2);
+      setTimeout(() => src.stop(), 1200);
+    }
+    windLoop = null;
+    return;
+  }
+  const { ac, out: dest } = out();
+  if (!windLoop) {
+    const src = ac.createBufferSource();
+    src.buffer = white(ac);
+    src.loop = true;
+    const f = ac.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 0.6;
+    const g = ac.createGain();
+    g.gain.value = 0;
+    src.connect(f).connect(g).connect(dest);
+    src.start();
+    windLoop = { src, f, g };
+  }
+  windLoop.f.frequency.setTargetAtTime(350 + level * 900, ac.currentTime, 0.3);
+  windLoop.g.gain.setTargetAtTime(0.05 + level * 0.09, ac.currentTime, 0.3);
 }
 
 let rainLoop: { src: AudioBufferSourceNode; g: GainNode } | null = null;

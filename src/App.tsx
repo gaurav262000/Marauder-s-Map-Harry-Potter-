@@ -21,7 +21,7 @@ import { LOCK_KEY, type Lock } from './lib/lock.ts';
 import { placeAt, walkingRoute, type Place } from './lib/services.ts';
 import type { Spell } from './lib/spells.ts';
 import * as sfx from './lib/sfx.ts';
-import { startMusic, stopMusic, theme } from './lib/theme.ts';
+import { quietMusic, startMusic, stopMusic, theme } from './lib/theme.ts';
 import { coarse, SKY_WORDS, skyAt, type Sky } from './lib/weather.ts';
 import { flyOwl, portal } from './map/effects.ts';
 import { createFootprints, type Footprints } from './map/footprints.ts';
@@ -205,6 +205,8 @@ export default function App() {
 
   // during a game the wanderers rest, so the map isn't redrawn under it every frame
   useEffect(() => fp.current?.setWanderers(wanderers && !game), [map, wanderers, game]);
+  // and the music steps back, so the game's own sounds come through
+  useEffect(() => quietMusic(!!game), [game]);
 
   // Opening the map, the place names are inked in one kind after another.
   useEffect(() => {

@@ -86,9 +86,8 @@ function draw(ctx: CanvasRenderingContext2D, things: Thing[], streaks: number[][
       const top = bottom - sh * STORM_BODY;
       for (let y = top - CLOUD_H * 0.55, i = 0; y > -CLOUD_H; y -= CLOUD_H * 0.7, i++) ctx.drawImage(cloud, cx - CLOUD_W / 2 + (i % 2 ? -10 : 8), y, CLOUD_W, CLOUD_H);
       if (!storm.complete) continue;
-      const strike = (time * 1.7 + t.x * 0.013) % 2.6 < 0.18;
       // between strikes only the cloud shows, cut off above its bolts
-      const keep = strike ? 1 : STORM_BODY;
+      const keep = t.lit ? 1 : STORM_BODY;
       ctx.drawImage(storm, 0, 0, storm.naturalWidth, storm.naturalHeight * keep, cx - STORM_W / 2, top, STORM_W, sh * keep);
     } else if (t.kind === 'owl') {
       // an owl flying at you (the picture faces right, so it is turned round); wings beat by squashing it
@@ -176,6 +175,7 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
         const w = wave(W + 20, H, time);
         things.push(...w);
         next = dist + (w[0].kind === 'owl' ? 220 : 300);
+        if (w[0].kind === 'owl') sfx.hoot(0.25, 1.8); // heard before they are seen
       }
       for (const t of things) {
         t.x -= v * dt * (t.kind === 'owl' ? 1.35 : 1);
@@ -185,6 +185,12 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
         }
       }
       things = things.filter((t) => t.x + t.w > -40);
+      for (const t of things) {
+        if (t.kind !== 'storm') continue;
+        const was = t.lit;
+        t.lit = (time * 1.7 + t.x * 0.013) % 2.6 < 0.18;
+        if (t.lit && !was && t.x > 0 && t.x < W) sfx.zap(0.22);
+      }
       for (const s of streaks) {
         s[0] -= v * dt * 1.6;
         if (s[0] + s[2] < 0) [s[0], s[1]] = [W + Math.random() * 60, Math.random() * H];
@@ -203,19 +209,22 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
           t.done = true;
           t.doneAt = time;
           setOrbs(++caught);
-          sfx.chime([84 + Math.min(caught, 8), 91 + Math.min(caught, 8)], 0.06, 0.08);
+          sfx.coin(caught);
+          sfx.buzz(20);
           scatter(f, x + 20, y, 8, 'gb-feather', 40);
         } else if (hurt === 0) {
           hurt = SAFE_S;
           setLives(--lifeLeft);
-          navigator.vibrate?.(80);
-          sfx.knock(1);
-          sfx.fizzle();
+          sfx.bump();
+          sfx.buzz([60, 40, 60]);
           if (lifeLeft <= 0) {
             // off the broom and down
             el.src = crash;
             el.classList.remove('hurt');
             el.classList.add('falling');
+            sfx.wind(0);
+            sfx.fall();
+            sfx.buzz([120, 60, 220]);
             setMetres(Math.floor(dist / 10));
             setState('over');
             return;
@@ -225,6 +234,7 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
       if (time - shown > 0.25) {
         shown = time;
         setMetres(Math.floor(dist / 10));
+        sfx.wind(0.2 + (0.8 * (v - speedAt(0))) / (speedAt(1e9) - speedAt(0)));
       }
       ctx.clearRect(0, 0, W, H);
       hills(ctx, W, H, dist);
@@ -232,8 +242,24 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      sfx.wind(0);
+    };
   }, [state]);
+
+  // after the fall: a fanfare for a new best, otherwise a short falling phrase
+  useEffect(() => {
+    if (state !== 'over') return;
+    const won = score > bestBefore.current;
+    const t = setTimeout(() => {
+      if (won) {
+        sfx.fanfare();
+        sfx.buzz([40, 40, 40, 40, 120]);
+      } else sfx.gameOver();
+    }, 1100);
+    return () => clearTimeout(t);
+  }, [state, score]);
 
   useEffect(() => {
     if (state !== 'over' || score <= best) return;
@@ -243,7 +269,6 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
     } catch {
       /* private mode */
     }
-    sfx.chime([72, 76, 79, 84, 88], 0.11, 0.12);
     const f = field.current;
     if (f) scatter(f, f.clientWidth / 2, f.clientHeight * 0.4, 40, 'gb-confetti', Math.min(f.clientWidth, 420) * 0.6);
   }, [state, score, best]);
@@ -269,7 +294,8 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
     setOrbs(0);
     setMetres(0);
     setState('flying');
-    sfx.whoosh(1, 0.3);
+    sfx.whoosh(1, 0.45);
+    sfx.buzz(30);
   };
 
   const record = score > bestBefore.current;
