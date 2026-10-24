@@ -43,9 +43,24 @@ const loadBest = () => {
   }
 };
 
+/** Two ranges of hills far below, drifting by slower than the sky: the nearer, the faster. */
+function hills(ctx: CanvasRenderingContext2D, W: number, H: number, dist: number) {
+  for (const [shift, base, tall, colour] of [[0.08, 0.2, 0.09, '#3b4a72'], [0.2, 0.1, 0.07, '#26324f']] as const) {
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W + 20; x += 20) {
+      const u = (x + dist * shift) / 90;
+      ctx.lineTo(x, H * (1 - base) - H * tall * (0.6 * Math.sin(u) + 0.4 * Math.sin(u * 2.3 + 1)));
+    }
+    ctx.lineTo(W, H);
+    ctx.fill();
+  }
+}
+
 function draw(ctx: CanvasRenderingContext2D, things: Thing[], streaks: number[][], time: number) {
   ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(80, 50, 20, 0.18)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
   ctx.lineWidth = 2;
   for (const [x, y, l] of streaks) {
     ctx.beginPath();
@@ -212,6 +227,7 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
         setMetres(Math.floor(dist / 10));
       }
       ctx.clearRect(0, 0, W, H);
+      hills(ctx, W, H, dist);
       draw(ctx, things, streaks, time);
       raf = requestAnimationFrame(frame);
     };

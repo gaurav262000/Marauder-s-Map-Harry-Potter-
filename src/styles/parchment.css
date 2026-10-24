@@ -858,7 +858,10 @@ button, input { font: inherit; color: inherit; }
 }
 
 /* the broom race */
-.race-layer { position: absolute; inset: 0 12px 12px; z-index: 4; overflow: hidden; touch-action: none; cursor: ns-resize; background: linear-gradient(rgba(245, 233, 201, 0.35), rgba(245, 233, 201, 0.1)); }
+/* a screen of its own, off the map: a dusk sky with a few stars */
+.race-layer { position: fixed; inset: 0; z-index: 40; overflow: hidden; touch-action: none; cursor: ns-resize; background: radial-gradient(1px 1px at 12% 18%, #fff8, transparent), radial-gradient(1.5px 1.5px at 38% 9%, #fffa, transparent), radial-gradient(1px 1px at 63% 22%, #fff8, transparent), radial-gradient(1.5px 1.5px at 86% 12%, #fff9, transparent), radial-gradient(1px 1px at 74% 4%, #fff7, transparent), linear-gradient(#141d36 0%, #2c3c66 45%, #7b6a8a 75%, #e0a872 100%); }
+.race-layer .gb-score { top: calc(16px + env(safe-area-inset-top)); }
+.race-layer .gb-quit { bottom: calc(24px + env(safe-area-inset-bottom)); }
 .race-sky { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .race-rider { position: absolute; left: 0; top: 0; z-index: 2; width: 130px; height: 88px; object-fit: contain; pointer-events: none; will-change: transform; }
 .race-rider.hurt { animation: race-hurt 0.15s steps(2) infinite; filter: drop-shadow(0 0 10px rgba(200, 30, 20, 0.9)); }

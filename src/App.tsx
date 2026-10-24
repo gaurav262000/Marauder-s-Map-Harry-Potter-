@@ -1,13 +1,11 @@
 import { CircleQuestionMark, CloudRain, FoldVertical, Sparkles, Footprints as FootIcon, LocateFixed, Minus, Moon, Plus, Route as RouteIcon, Tag, Music, Users, WandSparkles, Wind, X } from 'lucide-react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibre } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CandleLight } from './components/CandleLight.tsx';
 import { GroupPanel } from './components/GroupPanel.tsx';
 import { HelpDialog } from './components/HelpDialog.tsx';
-import { BroomRace } from './components/BroomRace.tsx';
-import { GoldenBird } from './components/GoldenBird.tsx';
 import { InkLetter } from './components/InkLetter.tsx';
 import { Intro } from './components/Intro.tsx';
 import { formatCoord, PlaceNote } from './components/PlaceNote.tsx';
@@ -29,6 +27,10 @@ import { flyOwl, portal } from './map/effects.ts';
 import { createFootprints, type Footprints } from './map/footprints.ts';
 import { provideImages } from './map/images.ts';
 import { LABEL_LAYERS, parchmentStyle } from './map/style.ts';
+
+// The games load only when opened, so the map itself starts lighter.
+const GoldenBird = lazy(() => import('./components/GoldenBird.tsx').then((m) => ({ default: m.GoldenBird })));
+const BroomRace = lazy(() => import('./components/BroomRace.tsx').then((m) => ({ default: m.BroomRace })));
 
 /** King's Cross, London — where a journey begins until the map knows where you are. */
 const KINGS_CROSS: LngLat = [-0.12395, 51.53205];
@@ -714,8 +716,10 @@ export default function App() {
         </div>
 
         {wand && <Wand onSpell={castSpell} onDone={() => setWand(false)} />}
-        {game === 'bird' && <GoldenBird onClose={() => setGame(null)} />}
-        {game === 'race' && <BroomRace onClose={() => setGame(null)} />}
+        <Suspense fallback={null}>
+          {game === 'bird' && <GoldenBird onClose={() => setGame(null)} />}
+          {game === 'race' && createPortal(<BroomRace onClose={() => setGame(null)} />, document.body)}
+        </Suspense>
 
         <button ref={compass} className="compass" onClick={() => map?.resetNorth()} aria-label="Turn the map back to north" title="North">
           <svg viewBox="-50 -50 100 100" aria-hidden>
