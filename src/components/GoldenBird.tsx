@@ -39,7 +39,7 @@ export function scatter(parent: HTMLElement, x: number, y: number, n: number, cl
 
 // The seeker on a broom who chases the bird: a cloaked flyer of our own, reaching out with one hand.
 // The outstretched hand (66, 25 in the 80×50 box) sits exactly under the pointer.
-export const RIDER = `<svg viewBox="0 0 80 50" aria-hidden="true">
+const RIDER = `<svg viewBox="0 0 80 50" aria-hidden="true">
   <path class="r-bristles" d="M14 33 C8 28 2 27 0 29 C3 31 3 34 0 37 C3 38 9 38 14 36Z"/>
   <path class="r-broom" d="M12 34.5 L74 29"/>
   <path class="r-cloak" d="M30 33 C26 24 32 14 42 12 C49 11 52 17 50 24 L46 33Z"/>
@@ -50,8 +50,8 @@ export const RIDER = `<svg viewBox="0 0 80 50" aria-hidden="true">
   <circle class="r-hand" cx="66" cy="25" r="2.4"/>
   <path class="r-leg" d="M40 31 C44 36 50 37 54 36"/>
 </svg>`;
-export const RIDER_W = 104;
-export const RIDER_H = 65;
+const RIDER_W = 104;
+const RIDER_H = 65;
 const HAND: [number, number] = [(66 * RIDER_W) / 80, (25 * RIDER_H) / 50];
 
 const BIRD = `<svg viewBox="-30 -20 60 40" aria-hidden="true">

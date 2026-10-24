@@ -860,9 +860,11 @@ button, input { font: inherit; color: inherit; }
 /* the broom race */
 .race-layer { position: absolute; inset: 0 12px 12px; z-index: 4; overflow: hidden; touch-action: none; cursor: ns-resize; background: linear-gradient(rgba(245, 233, 201, 0.35), rgba(245, 233, 201, 0.1)); }
 .race-sky { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.race-layer .gb-rider { opacity: 1; transition: none; }
-.race-rider.hurt { animation: race-hurt 0.15s steps(2) infinite; }
-@keyframes race-hurt { to { opacity: 0.25; } }
+.race-rider { position: absolute; left: 0; top: 0; z-index: 2; width: 130px; height: 88px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 6px 4px rgba(30, 12, 3, 0.45)); }
+.race-rider.hurt { animation: race-hurt 0.15s steps(2) infinite; filter: drop-shadow(0 0 10px rgba(200, 30, 20, 0.9)); }
+@keyframes race-hurt { to { opacity: 0.3; } }
+.race-rider.falling { animation: race-fall 1.4s cubic-bezier(0.5, 0, 0.9, 0.6) forwards; }
+@keyframes race-fall { 15% { translate: 0 -14px; } to { translate: 0 70vh; rotate: 50deg; opacity: 0; } }
 .race-lives { color: var(--wax); letter-spacing: 0.08em; }
 .race-lives i { font-style: normal; color: rgba(122, 29, 21, 0.25); }
 .race-layer .letter { position: absolute; cursor: pointer; }

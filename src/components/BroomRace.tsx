@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { speedAt, touches, wave, type Thing } from '../lib/race.ts';
 import * as sfx from '../lib/sfx.ts';
-import { RIDER, RIDER_H, RIDER_W, scatter } from './GoldenBird.tsx';
+import crash from '../assets/rider-crash.webp';
+import down from '../assets/rider-down.webp';
+import level from '../assets/rider-hero.webp';
+import up from '../assets/rider-up.webp';
+import { scatter } from './GoldenBird.tsx';
 import { Quip } from './InkLetter.tsx';
 
 const BEST_KEY = 'atlas-race-best';
 const LIVES = 3;
-const R = 13; // the rider's reach for bumping into things
+const R = 15; // the rider's reach for bumping into things
+const RW = 130; // the rider picture's box; the body sits at 60% across, 54% down
+const RH = 88;
 const SAFE_S = 1.3; // after a bump, a moment you can't be hurt
 
 const loadBest = () => {
@@ -114,7 +120,7 @@ function draw(ctx: CanvasRenderingContext2D, things: Thing[], streaks: number[][
 export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx: number) => void }) {
   const field = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const rider = useRef<HTMLDivElement>(null);
+  const rider = useRef<HTMLImageElement>(null);
   const aim = useRef(0); // where the finger wants the rider
   const [state, setState] = useState<'ready' | 'flying' | 'over'>('ready');
   const [lives, setLives] = useState(LIVES);
@@ -137,7 +143,11 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
     c.width = W * dpr;
     c.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const x = Math.min(110, W * 0.25);
+    const x = Math.min(130, W * 0.3);
+    const el = rider.current!;
+    el.src = level;
+    el.classList.remove('falling');
+    let pose = level;
     let y = aim.current || H / 2;
     let things: Thing[] = [];
     const streaks = Array.from({ length: 14 }, () => [Math.random() * W, Math.random() * H, 20 + Math.random() * 40]);
@@ -174,14 +184,16 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
         s[0] -= v * dt * 1.6;
         if (s[0] + s[2] < 0) [s[0], s[1]] = [W + Math.random() * 60, Math.random() * H];
       }
-      // the rider eases towards the finger and leans into climbs and dives
+      // the rider eases towards the finger, climbing or diving on the broom as it goes
       const dy = (aim.current - y) * Math.min(1, dt * 9);
       y = Math.max(R, Math.min(H - R, y + dy));
-      const el = rider.current!;
-      el.style.transform = `translate(${x - RIDER_W / 2}px, ${y - RIDER_H / 2}px) rotate(${Math.max(-25, Math.min(25, dy * 3))}deg)`;
+      const climb = dy / Math.max(dt, 0.001);
+      const want = climb < -140 ? up : climb > 140 ? down : level;
+      if (want !== pose) el.src = pose = want;
+      el.style.transform = `translate(${x - RW * 0.6}px, ${y - RH * 0.54}px) rotate(${Math.max(-12, Math.min(12, dy * 1.5))}deg)`;
       el.classList.toggle('hurt', hurt > 0);
       for (const t of things) {
-        if (t.done || !touches(x + 6, y, R, t)) continue;
+        if (t.done || !touches(x, y, R, t)) continue;
         if (t.kind === 'ring') {
           t.done = true;
           setRings(++ringsHit);
@@ -194,6 +206,10 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
           sfx.knock(1);
           sfx.fizzle();
           if (lifeLeft <= 0) {
+            // off the broom and down
+            el.src = crash;
+            el.classList.remove('hurt');
+            el.classList.add('falling');
             setMetres(Math.floor(dist / 10));
             setState('over');
             return;
@@ -248,7 +264,7 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
       }}
     >
       <canvas ref={canvas} className="race-sky" aria-hidden />
-      <div className="gb-rider race-rider" ref={rider} style={{ width: RIDER_W, height: RIDER_H, visibility: state === 'ready' ? 'hidden' : undefined }} dangerouslySetInnerHTML={{ __html: RIDER }} />
+      <img className="race-rider" ref={rider} src={level} alt="" width={RW} height={RH} style={{ visibility: state === 'ready' ? 'hidden' : undefined }} />
       <p className="gb-score" aria-live="polite">
         <span className="race-lives" aria-label={`${lives} lives left`}>{'♥'.repeat(lives)}<i>{'♥'.repeat(LIVES - lives)}</i></span> · {metres} m · {rings} {rings === 1 ? 'ring' : 'rings'}
         {best ? ` · best ${best}` : ''}
