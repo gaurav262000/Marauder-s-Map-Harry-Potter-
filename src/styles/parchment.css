@@ -857,6 +857,27 @@ button, input { font: inherit; color: inherit; }
   .gb-record { animation: none; }
 }
 
+/* the hidden key: hot and cold digs */
+.hk-layer { position: absolute; inset: 0 12px 12px; z-index: 4; overflow: hidden; touch-action: none; cursor: var(--wand-lit), crosshair; background: radial-gradient(ellipse at center, transparent 55%, rgba(60, 35, 10, 0.25)); }
+.hk-dig { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 48% 52% 45% 55%; opacity: 0.8; pointer-events: none; box-shadow: 0 0 0 3px rgba(38, 20, 10, 0.25); animation: hk-dig 0.35s ease-out; }
+@keyframes hk-dig { from { transform: scale(0.2); opacity: 0; } }
+.hk-word { position: absolute; z-index: 2; translate: -50% -150%; display: grid; justify-items: center; pointer-events: none; white-space: nowrap; font: 1.6rem var(--font-hand); color: var(--wax-dark); text-shadow: 0 0 6px #fff6cf, 0 0 2px #fff; animation: hk-word 0.4s ease-out; }
+.hk-word small { font: italic 1rem var(--font-fell); color: var(--ink-dark); }
+@keyframes hk-word { from { transform: translateY(8px); opacity: 0; } }
+.hk-key { position: absolute; z-index: 2; width: 56px; height: 28px; margin: -14px 0 0 -28px; pointer-events: none; filter: drop-shadow(0 0 8px rgba(255, 210, 90, 0.9)); animation: hk-key 0.6s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.hk-key svg { width: 100%; height: 100%; overflow: visible; }
+.hk-key.lost { animation: hk-key 0.6s ease-out, hk-glow 1.2s ease-in-out 0.6s infinite alternate; }
+.hk-bow, .hk-shaft { fill: none; stroke: #c99a2e; stroke-width: 3.2; stroke-linecap: round; }
+.hk-bow { fill: #f0cd62; }
+.hk-hole { fill: #7a5212; }
+@keyframes hk-key { from { transform: translateY(14px) scale(0.3) rotate(-30deg); opacity: 0; } }
+@keyframes hk-glow { to { filter: drop-shadow(0 0 16px rgba(255, 210, 90, 1)); } }
+.hk-layer .letter.hk-low { top: auto; bottom: 16px; translate: -50% 0; }
+.hk-layer .letter.hk-high { top: 64px; translate: -50% 0; }
+@media (prefers-reduced-motion: reduce) {
+  .hk-dig, .hk-word, .hk-key { animation: none; }
+}
+
 /* the seeker on a broom: the game's pointer */
 .gb-layer { cursor: none; }
 .gb-layer .btn, .gb-layer .letter { cursor: var(--wand-lit), pointer; }
