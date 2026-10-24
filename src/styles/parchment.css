@@ -836,6 +836,11 @@ button, input { font: inherit; color: inherit; }
 }
 .gb-bird img { width: 100%; height: 100%; object-fit: contain; animation: orb-flutter 0.09s ease-in-out infinite alternate; }
 @keyframes orb-flutter { to { transform: scaleY(0.78); } }
+.gb-key { position: absolute; left: 0; top: 0; visibility: hidden; width: 64px; height: 64px; padding: 0; border: 0; background: none; filter: drop-shadow(0 0 8px rgba(90, 150, 255, 0.7)); }
+.gb-key img { width: 100%; height: 100%; object-fit: contain; animation: key-wobble 0.45s ease-in-out infinite alternate; }
+@keyframes key-wobble { from { transform: rotate(-8deg) translateY(-2px); } to { transform: rotate(6deg) translateY(2px); } }
+.gb-pop.ouch { color: #ff8a7a; }
+.gb-layer .gb-key { cursor: none; }
 .gb-score { position: absolute; left: 50%; top: 16px; translate: -50% 0; margin: 0; padding: 6px 14px; border-radius: 3px; background: rgba(245, 233, 201, 0.95); box-shadow: var(--shadow); font: 600 1.05rem var(--font-fell); color: var(--ink-dark); white-space: nowrap; pointer-events: none; }
 .gb-quit { position: absolute; left: 50%; bottom: 24px; translate: -50% 0; width: auto; background: var(--parchment-light); }
 .gb-burst { position: absolute; width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(255, 230, 140, 0.95), rgba(233, 183, 48, 0.4) 40%, transparent 70%); animation: gb-burst 0.6s ease-out forwards; }
@@ -877,7 +882,7 @@ button, input { font: inherit; color: inherit; }
 .gb-layer .gb-bird { cursor: none; }
 .gb-rider { position: absolute; left: 0; top: 0; z-index: 2; object-fit: contain; opacity: 0; pointer-events: none; transition: opacity 0.2s; animation: hover-bob 0.5s ease-in-out infinite alternate; }
 @keyframes hover-bob { from { translate: 0 -2px; } to { translate: 0 2px; } }
-@media (prefers-reduced-motion: reduce) { .gb-rider, .gb-bird img { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .gb-rider, .gb-bird img, .gb-key img { animation: none; } }
 
 /* ——— The opening parchment folding along its crease ——— */
 .fold-stage { position: fixed; z-index: 25; perspective: 1600px; pointer-events: none; }

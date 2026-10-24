@@ -223,6 +223,12 @@ export function bump() {
   burst({ at: 0.02, dur: 0.12, gain: 0.12, type: 'highpass', freq: 3000, q: 0.6 });
 }
 
+/** Metal struck: a wrong grab at a flying key. */
+export function clang() {
+  for (const [freq, gain, dur] of [[1250, 0.12, 0.5], [1870, 0.07, 0.4], [3120, 0.04, 0.25]]) tone({ freq, dur, gain, type: 'triangle' });
+  burst({ dur: 0.05, gain: 0.15, type: 'highpass', freq: 3000, q: 0.7 });
+}
+
 /** A crack of lightning, not too close. */
 export function zap(gain = 0.18) {
   burst({ dur: 0.12, gain, type: 'highpass', freq: 2500, q: 0.5, attack: 0.002 });

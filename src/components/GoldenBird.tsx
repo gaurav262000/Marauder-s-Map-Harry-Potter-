@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import keyArt from '../assets/key.webp';
 import orbArt from '../assets/orb.webp';
 import wizard from '../assets/rider-hero.webp';
 import * as sfx from '../lib/sfx.ts';
@@ -7,6 +8,9 @@ import { Quip } from './InkLetter.tsx';
 const ROUND_S = 60;
 const BEST_KEY = 'atlas-bird-best';
 const SIZE = 56;
+const KEYS = 4; // at most this many flying keys, more as the catches mount
+const KEY = 64;
+const PENALTY_S = 3; // grabbing a key instead of the orb costs this much time
 
 const loadBest = () => {
   try {
@@ -60,6 +64,8 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
   const bestBefore = useRef(best); // to tell a new best from a tie
   const [record, setRecord] = useState(false); // shown the moment the old best falls
   const escape = useRef(0); // seconds of panicked flight after a catch
+  const penalty = useRef(0); // seconds to take off the clock
+  const keyEls = useRef<(HTMLButtonElement | null)[]>([]);
   const rider = useRef<HTMLImageElement>(null);
   const flight = useRef({ x: 0, y: 0, left: false });
 
@@ -106,10 +112,34 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
       restless = 0.6 + Math.random() * 1.2;
     };
     pick();
+    // the keys: they wander, and half the time they make for the orb, to get in the way
+    const keys = Array.from({ length: KEYS }, () => ({ x: Math.random() * f.clientWidth, y: Math.random() * f.clientHeight, tx: 0, ty: 0, wait: 0 }));
     const frame = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000); // a hidden tab doesn't eat the clock
       last = now;
-      time -= dt;
+      time -= dt + penalty.current;
+      penalty.current = 0;
+      const out = Math.min(KEYS, 1 + Math.floor(caught.current / 4));
+      keys.forEach((k, i) => {
+        const el = keyEls.current[i];
+        if (!el) return;
+        el.style.visibility = i < out ? 'visible' : 'hidden';
+        if (i >= out) return;
+        k.wait -= dt;
+        if (k.wait <= 0) {
+          const guard = Math.random() < 0.5;
+          k.tx = guard ? x + (Math.random() - 0.5) * 160 : KEY + Math.random() * Math.max(1, f.clientWidth - 2 * KEY);
+          k.ty = guard ? y + (Math.random() - 0.5) * 160 : KEY + Math.random() * Math.max(1, f.clientHeight - 2 * KEY);
+          k.wait = 1 + Math.random() * 1.5;
+        }
+        const kx = k.tx - k.x;
+        const ky = k.ty - k.y;
+        const kd = Math.hypot(kx, ky) || 1;
+        const step = Math.min(kd, ((still ? 50 : 105) + 8 * caught.current) * dt);
+        k.x += (kx / kd) * step;
+        k.y += (ky / kd) * step;
+        el.style.transform = `translate(${k.x - KEY / 2}px, ${k.y - KEY / 2}px) scaleX(${kx < 0 ? -1 : 1})`;
+      });
       restless -= dt;
       escape.current = Math.max(0, escape.current - dt);
       const speed = ((still ? 70 : 150) + 45 * caught.current) * (escape.current > 0 ? 2.6 : 1);
@@ -175,6 +205,25 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
     if (bestBefore.current > 0 && n === bestBefore.current + 1) celebrate();
   };
 
+  /** Grabbed a key instead of the orb: a clang, a buzz, and time off the clock. */
+  const grabKey = (e: PointerEvent) => {
+    e.stopPropagation();
+    steer(e);
+    if (over) return;
+    penalty.current += PENALTY_S;
+    sfx.clang();
+    sfx.buzz([50, 30, 50]);
+    const f = field.current!;
+    const r = f.getBoundingClientRect();
+    const pop = document.createElement('span');
+    pop.className = 'gb-pop ouch';
+    pop.textContent = `−${PENALTY_S}s Wrong one!`;
+    pop.style.left = `${e.clientX - r.left}px`;
+    pop.style.top = `${e.clientY - r.top}px`;
+    f.append(pop);
+    setTimeout(() => pop.remove(), 1200);
+  };
+
   /** The old best just fell: a banner, confetti, a little fanfare. */
   const celebrate = () => {
     const f = field.current!;
@@ -229,6 +278,11 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
       <button ref={bird} className="gb-bird" onPointerDown={catchIt} aria-label="The golden orb: tap to catch it" disabled={over}>
         <img src={orbArt} alt="" />
       </button>
+      {Array.from({ length: KEYS }, (_, i) => (
+        <button key={i} ref={(el) => void (keyEls.current[i] = el)} className="gb-key" onPointerDown={grabKey} aria-label="A flying key: not this one!" disabled={over}>
+          <img src={keyArt} alt="" />
+        </button>
+      ))}
       {over ? (
         <div className="letter gb-end note-emerge" role="dialog" aria-label="Time is up">
           {score > bestBefore.current ? <p className="gb-crown" aria-hidden>👑</p> : null}
