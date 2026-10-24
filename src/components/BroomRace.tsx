@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { CASTLE, speedAt, touches, wave, type Thing } from '../lib/race.ts';
 import * as sfx from '../lib/sfx.ts';
 import castleArt from '../assets/castle.webp';
+import cloudArt from '../assets/cloud.webp';
+import stormArt from '../assets/storm.webp';
 import crash from '../assets/rider-crash.webp';
 import down from '../assets/rider-down.webp';
 import level from '../assets/rider-hero.webp';
@@ -16,8 +18,15 @@ const RW = 130; // the rider picture's box; the body sits at 60% across, 54% dow
 const RH = 88;
 const SAFE_S = 1.3; // after a bump, a moment you can't be hurt
 
-const castle = new Image();
-castle.src = castleArt; // loaded with the game, long before the first castle flies in
+// pictures loaded with the game, long before the first of them flies in
+const picture = (src: string) => Object.assign(new Image(), { src });
+const castle = picture(castleArt);
+const storm = picture(stormArt); // a thundercloud with its lightning below it
+const cloud = picture(cloudArt);
+const STORM_W = 128;
+const STORM_BODY = 0.7; // the share of the thundercloud picture above its bolts
+const CLOUD_W = 120;
+const CLOUD_H = 60;
 
 const loadBest = () => {
   try {
@@ -48,24 +57,17 @@ function draw(ctx: CanvasRenderingContext2D, things: Thing[], streaks: number[][
         ctx.fillRect(t.x, t.y, t.w, t.h);
       }
     } else if (t.kind === 'storm') {
-      // a dark cloud hanging down, now and then lit by lightning
-      ctx.fillStyle = '#4a3d33';
-      ctx.fillRect(t.x, t.y, t.w, Math.max(0, t.h - 16));
-      for (let i = 0; i < 4; i++) {
-        ctx.beginPath();
-        ctx.arc(t.x + 9 + i * 17, t.y + t.h - 16, 15 + (i % 2) * 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      if ((time * 2.3 + t.x * 0.01) % 3 < 0.12) {
-        ctx.strokeStyle = '#ffe58a';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(t.x + 35, t.y + t.h);
-        ctx.lineTo(t.x + 26, t.y + t.h + 22);
-        ctx.lineTo(t.x + 38, t.y + t.h + 20);
-        ctx.lineTo(t.x + 30, t.y + t.h + 44);
-        ctx.stroke();
-      }
+      // a heap of clouds hanging down to a thundercloud, whose lightning strikes now and then
+      const cx = t.x + t.w / 2;
+      const bottom = t.y + t.h;
+      const sh = (STORM_W * storm.naturalHeight) / (storm.naturalWidth || 1);
+      const top = bottom - sh * STORM_BODY;
+      for (let y = top - CLOUD_H * 0.55, i = 0; y > -CLOUD_H; y -= CLOUD_H * 0.7, i++) ctx.drawImage(cloud, cx - CLOUD_W / 2 + (i % 2 ? -10 : 8), y, CLOUD_W, CLOUD_H);
+      if (!storm.complete) continue;
+      const strike = (time * 1.7 + t.x * 0.013) % 2.6 < 0.18;
+      // between strikes only the cloud shows, cut off above its bolts
+      const keep = strike ? 1 : STORM_BODY;
+      ctx.drawImage(storm, 0, 0, storm.naturalWidth, storm.naturalHeight * keep, cx - STORM_W / 2, top, STORM_W, sh * keep);
     } else if (t.kind === 'crow') {
       const flap = Math.sin(time * 18 + t.x * 0.1) * 7;
       const cx = t.x + t.w / 2;
