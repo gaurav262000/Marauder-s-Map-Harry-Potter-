@@ -1,14 +1,15 @@
 // The broom race: what is in the sky, how fast it comes, and what the rider runs into.
 
-export type Kind = 'tower' | 'storm' | 'crow' | 'ring';
+export type Kind = 'tower' | 'storm' | 'owl' | 'orb';
 export interface Thing {
   kind: Kind;
   x: number;
   y: number;
   w: number;
   h: number;
-  vy?: number; // crows drift up and down
-  done?: boolean; // a ring already flown through
+  vy?: number; // owls drift up and down
+  done?: boolean; // an orb already caught
+  doneAt?: number; // when it was caught (seconds into the race)
 }
 
 /** Does a circle (the rider) touch a box? */
@@ -31,11 +32,11 @@ export const gapAt = (t: number) => Math.max(150, 250 - t * 3);
  */
 export const CASTLE = { aspect: 875 / 248, body: 0.7, depth: 0.85 };
 
-/** One stretch of sky, entering at `x`: a storm and a castle with a gap (often a ring in it), or crows. */
+/** One stretch of sky, entering at `x`: a storm and a castle with a gap (often a golden orb in it), or owls. */
 export function wave(x: number, height: number, t: number, rand = Math.random): Thing[] {
   if (t > 6 && rand() < 0.3) {
     const n = 1 + Math.floor(rand() * 2);
-    return Array.from({ length: n }, (_, i): Thing => ({ kind: 'crow', x: x + i * 90, y: 60 + rand() * (height - 120), w: 34, h: 18, vy: (rand() - 0.5) * 80 }));
+    return Array.from({ length: n }, (_, i): Thing => ({ kind: 'owl', x: x + i * 90, y: 60 + rand() * (height - 120), w: 44, h: 30, vy: (rand() - 0.5) * 80 }));
   }
   const gap = gapAt(t);
   const mid = gap / 2 + 30 + rand() * Math.max(0, height - gap - 60);
@@ -44,6 +45,6 @@ export function wave(x: number, height: number, t: number, rand = Math.random): 
     // the castle floats: it is only as tall as its picture, so a low gap opens beneath it
     { kind: 'tower', x: x + 4, y: mid + gap / 2, w: 64, h: Math.min(height - (mid + gap / 2), (64 / CASTLE.body) * CASTLE.aspect * CASTLE.depth) },
   ];
-  if (rand() < 0.6) out.push({ kind: 'ring', x: x + 22, y: mid - 32, w: 26, h: 64 });
+  if (rand() < 0.6) out.push({ kind: 'orb', x: x + 14, y: mid - 22, w: 44, h: 44 });
   return out;
 }

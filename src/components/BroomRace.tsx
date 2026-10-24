@@ -3,6 +3,8 @@ import { CASTLE, speedAt, touches, wave, type Thing } from '../lib/race.ts';
 import * as sfx from '../lib/sfx.ts';
 import castleArt from '../assets/castle.webp';
 import cloudArt from '../assets/cloud.webp';
+import orbArt from '../assets/orb.webp';
+import owlArt from '../assets/owl.webp';
 import stormArt from '../assets/storm.webp';
 import crash from '../assets/rider-crash.webp';
 import down from '../assets/rider-down.webp';
@@ -23,6 +25,11 @@ const picture = (src: string) => Object.assign(new Image(), { src });
 const castle = picture(castleArt);
 const storm = picture(stormArt); // a thundercloud with its lightning below it
 const cloud = picture(cloudArt);
+const owl = picture(owlArt);
+const orb = picture(orbArt);
+const OWL_W = 74;
+const ORB_W = 62;
+const ORB_H = 37;
 const STORM_W = 128;
 const STORM_BODY = 0.7; // the share of the thundercloud picture above its bolts
 const CLOUD_W = 120;
@@ -68,43 +75,39 @@ function draw(ctx: CanvasRenderingContext2D, things: Thing[], streaks: number[][
       // between strikes only the cloud shows, cut off above its bolts
       const keep = strike ? 1 : STORM_BODY;
       ctx.drawImage(storm, 0, 0, storm.naturalWidth, storm.naturalHeight * keep, cx - STORM_W / 2, top, STORM_W, sh * keep);
-    } else if (t.kind === 'crow') {
-      const flap = Math.sin(time * 18 + t.x * 0.1) * 7;
-      const cx = t.x + t.w / 2;
-      const cy = t.y + t.h / 2;
-      ctx.fillStyle = '#1c120b';
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, 10, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(cx - 10, cy);
-      ctx.lineTo(cx - 17, cy - 2);
-      ctx.lineTo(cx - 10, cy + 3);
-      ctx.fill();
-      ctx.strokeStyle = '#1c120b';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(cx - 14, cy - 4 - flap);
-      ctx.quadraticCurveTo(cx - 4, cy - 10, cx, cy - 2);
-      ctx.quadraticCurveTo(cx + 4, cy - 10, cx + 14, cy - 4 - flap);
-      ctx.stroke();
+    } else if (t.kind === 'owl') {
+      // an owl flying at you (the picture faces right, so it is turned round); wings beat by squashing it
+      const beat = 0.82 + 0.18 * Math.abs(Math.sin(time * 9 + t.x * 0.05));
+      ctx.save();
+      ctx.translate(t.x + t.w / 2, t.y + t.h / 2);
+      ctx.scale(-1, beat);
+      ctx.drawImage(owl, -OWL_W / 2, -OWL_W / 2, OWL_W, OWL_W);
+      ctx.restore();
     } else if (!t.done) {
-      // a gold ring to fly through, with a soft glow (a wide faint stroke: blur is slow on phones)
+      // a golden orb hovering in the gap, wings aflutter, with a soft glow (blur is slow on phones)
+      const cx = t.x + t.w / 2;
+      const cy = t.y + t.h / 2 + Math.sin(time * 4 + t.x * 0.02) * 4;
+      ctx.fillStyle = 'rgba(255, 214, 110, 0.28)';
       ctx.beginPath();
-      ctx.ellipse(t.x + t.w / 2, t.y + t.h / 2, t.w / 2, t.h / 2, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255, 210, 90, 0.35)';
-      ctx.lineWidth = 12;
-      ctx.stroke();
-      ctx.strokeStyle = '#e9b730';
-      ctx.lineWidth = 5;
+      ctx.arc(cx, cy + 4, 20, 0, Math.PI * 2);
+      ctx.fill();
+      const flutter = 0.75 + 0.25 * Math.abs(Math.sin(time * 22 + t.x));
+      ctx.drawImage(orb, cx - ORB_W / 2, cy - (ORB_H * flutter) / 2, ORB_W, ORB_H * flutter);
+    } else if (t.doneAt !== undefined && time - t.doneAt < 0.4) {
+      // caught: a bright ring of light spreads and fades
+      const k = (time - t.doneAt) / 0.4;
+      ctx.strokeStyle = `rgba(255, 214, 110, ${1 - k})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(t.x + t.w / 2, t.y + t.h / 2, 12 + k * 36, 0, Math.PI * 2);
       ctx.stroke();
     }
   }
 }
 
 /**
- * A broom race over your own map: drag up and down to steer, fly through gold rings,
- * dodge storms, towers and crows. Three bumps and the race is over; it speeds up as you go.
+ * A broom race over your own map: drag up and down to steer, catch the golden orbs,
+ * dodge storms, castles and owls. Three bumps and the race is over; it speeds up as you go.
  */
 export function BroomRace({ onClose }: { onClose: () => void }) {
   const field = useRef<HTMLDivElement>(null);
@@ -113,11 +116,11 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
   const aim = useRef(0); // where the finger wants the rider
   const [state, setState] = useState<'ready' | 'flying' | 'over'>('ready');
   const [lives, setLives] = useState(LIVES);
-  const [rings, setRings] = useState(0);
+  const [orbs, setOrbs] = useState(0);
   const [metres, setMetres] = useState(0);
   const [best, setBest] = useState(loadBest);
   const bestBefore = useRef(best);
-  const score = metres + rings * 10;
+  const score = metres + orbs * 10;
 
   useEffect(() => {
     if (state !== 'flying') return;
@@ -143,7 +146,7 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
     let next = W * 0.6; // distance at which the next stretch of sky comes in
     let hurt = 0;
     let lifeLeft = LIVES;
-    let ringsHit = 0;
+    let caught = 0;
     let shown = 0; // when the distance on screen was last updated
     let raf = 0;
     let last = performance.now();
@@ -157,10 +160,10 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
       if (dist >= next) {
         const w = wave(W + 20, H, time);
         things.push(...w);
-        next = dist + (w[0].kind === 'crow' ? 220 : 300);
+        next = dist + (w[0].kind === 'owl' ? 220 : 300);
       }
       for (const t of things) {
-        t.x -= v * dt * (t.kind === 'crow' ? 1.35 : 1);
+        t.x -= v * dt * (t.kind === 'owl' ? 1.35 : 1);
         if (t.vy) {
           t.y += t.vy * dt;
           if (t.y < 20 || t.y > H - 40) t.vy = -t.vy;
@@ -181,10 +184,11 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
       el.classList.toggle('hurt', hurt > 0);
       for (const t of things) {
         if (t.done || !touches(x, y, R, t)) continue;
-        if (t.kind === 'ring') {
+        if (t.kind === 'orb') {
           t.done = true;
-          setRings(++ringsHit);
-          sfx.chime([84 + Math.min(ringsHit, 8), 91 + Math.min(ringsHit, 8)], 0.06, 0.08);
+          t.doneAt = time;
+          setOrbs(++caught);
+          sfx.chime([84 + Math.min(caught, 8), 91 + Math.min(caught, 8)], 0.06, 0.08);
           scatter(f, x + 20, y, 8, 'gb-feather', 40);
         } else if (hurt === 0) {
           hurt = SAFE_S;
@@ -246,7 +250,7 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
   const start = () => {
     bestBefore.current = best;
     setLives(LIVES);
-    setRings(0);
+    setOrbs(0);
     setMetres(0);
     setState('flying');
     sfx.whoosh(1, 0.3);
@@ -269,13 +273,13 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
       <canvas ref={canvas} className="race-sky" aria-hidden />
       <img className="race-rider" ref={rider} src={level} alt="" width={RW} height={RH} style={{ visibility: state === 'ready' ? 'hidden' : undefined }} />
       <p className="gb-score" aria-live="polite">
-        <span className="race-lives" aria-label={`${lives} lives left`}>{'♥'.repeat(lives)}<i>{'♥'.repeat(LIVES - lives)}</i></span> · {metres} m · {rings} {rings === 1 ? 'ring' : 'rings'}
+        <span className="race-lives" aria-label={`${lives} lives left`}>{'♥'.repeat(lives)}<i>{'♥'.repeat(LIVES - lives)}</i></span> · {metres} m · {orbs} {orbs === 1 ? 'orb' : 'orbs'}
         {best ? ` · best ${best}` : ''}
       </p>
       {state === 'ready' && (
         <div className="letter race-start note-emerge" role="dialog" aria-label="Broom race">
           <h2>Broom race</h2>
-          <p className="letter-text">Drag up and down to steer. Fly through the gold rings; dodge storms, towers and crows. Three bumps and you are down.</p>
+          <p className="letter-text">Drag up and down to steer. Catch the golden orbs; dodge storms, castles and owls. Three bumps and you are down.</p>
           <p className="race-tap">Tap anywhere to fly</p>
         </div>
       )}
@@ -284,10 +288,10 @@ export function BroomRace({ onClose }: { onClose: () => void }) {
           {record ? <p className="gb-crown" aria-hidden>👑</p> : null}
           <h2>{record ? 'A new best!' : 'Down you come'}</h2>
           <p className="letter-text">
-            You flew {metres} m and through {rings} {rings === 1 ? 'ring' : 'rings'}: {score} points.
+            You flew {metres} m and caught {orbs} golden {orbs === 1 ? 'orb' : 'orbs'}: {score} points.
             {!record && bestBefore.current ? ` Your best is ${bestBefore.current}.` : ''}
           </p>
-          {record && <Quip>{bestBefore.current ? 'Faster than ever. The crows are furious.' : 'Your first record. The sky remembers.'}</Quip>}
+          {record && <Quip>{bestBefore.current ? 'Faster than ever. The owls are furious.' : 'Your first record. The sky remembers.'}</Quip>}
           <div className="req-actions">
             <button className="btn primary" onClick={start}>
               Race again

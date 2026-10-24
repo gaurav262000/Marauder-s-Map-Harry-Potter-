@@ -7,11 +7,11 @@ test('a storm and a tower always leave a gap to fly through', () => {
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < 200; i++) {
     const t = i / 4;
-    const [storm, tower, ring] = wave(500, 700, t, rand);
-    if (storm.kind === 'crow') continue;
+    const [storm, tower, orb] = wave(500, 700, t, rand);
+    if (storm.kind === 'owl') continue;
     assert.ok(storm.h >= 30 && tower.y + tower.h <= 700 + 1e-9);
     assert.ok(Math.abs(tower.y - storm.h - gapAt(t)) < 1e-9);
-    if (ring) assert.ok(ring.y > storm.h && ring.y + ring.h < tower.y);
+    if (orb) assert.ok(orb.y > storm.h && orb.y + orb.h < tower.y);
   }
 });
 
@@ -22,9 +22,9 @@ test('the castle floats: never taller than its picture', () => {
   assert.ok(Math.abs(short.y + short.h - 700) < 1e-9);
 });
 
-test('crows come only after the first few seconds', () => {
+test('owls come only after the first few seconds', () => {
   assert.equal(wave(500, 700, 2, () => 0.1)[0].kind, 'storm');
-  assert.equal(wave(500, 700, 10, () => 0.1)[0].kind, 'crow');
+  assert.equal(wave(500, 700, 10, () => 0.1)[0].kind, 'owl');
 });
 
 test('touching, speed and gap', () => {
