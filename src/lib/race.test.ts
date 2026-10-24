@@ -9,10 +9,17 @@ test('a storm and a tower always leave a gap to fly through', () => {
     const t = i / 4;
     const [storm, tower, ring] = wave(500, 700, t, rand);
     if (storm.kind === 'crow') continue;
-    assert.ok(storm.h >= 30 && Math.abs(tower.y + tower.h - 700) < 1e-9);
+    assert.ok(storm.h >= 30 && tower.y + tower.h <= 700 + 1e-9);
     assert.ok(Math.abs(tower.y - storm.h - gapAt(t)) < 1e-9);
     if (ring) assert.ok(ring.y > storm.h && ring.y + ring.h < tower.y);
   }
+});
+
+test('the castle floats: never taller than its picture', () => {
+  const [, low] = wave(500, 2000, 0, () => 0.01); // a gap high up on a very tall screen
+  assert.ok(low.y + low.h < 2000);
+  const [, short] = wave(500, 700, 0, () => 0.99); // near the bottom it just runs off the screen
+  assert.ok(Math.abs(short.y + short.h - 700) < 1e-9);
 });
 
 test('crows come only after the first few seconds', () => {

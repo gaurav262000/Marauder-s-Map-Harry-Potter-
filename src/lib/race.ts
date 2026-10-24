@@ -24,7 +24,14 @@ export const speedAt = (t: number) => Math.min(420, 190 + t * 7);
 /** The opening between a storm above and a tower below narrows as the race goes on. */
 export const gapAt = (t: number) => Math.max(150, 250 - t * 3);
 
-/** One stretch of sky, entering at `x`: a storm and a tower with a gap (often a ring in it), or crows. */
+/**
+ * The floating castle that rises from below: its picture is `ASPECT` times as tall as wide,
+ * and only the middle `BODY` of its width (the towers, not the flags or the air beside the
+ * spire of rock) can be bumped into, down to `DEPTH` of its height.
+ */
+export const CASTLE = { aspect: 875 / 248, body: 0.7, depth: 0.85 };
+
+/** One stretch of sky, entering at `x`: a storm and a castle with a gap (often a ring in it), or crows. */
 export function wave(x: number, height: number, t: number, rand = Math.random): Thing[] {
   if (t > 6 && rand() < 0.3) {
     const n = 1 + Math.floor(rand() * 2);
@@ -34,7 +41,8 @@ export function wave(x: number, height: number, t: number, rand = Math.random): 
   const mid = gap / 2 + 30 + rand() * Math.max(0, height - gap - 60);
   const out: Thing[] = [
     { kind: 'storm', x, y: 0, w: 70, h: mid - gap / 2 },
-    { kind: 'tower', x: x + 4, y: mid + gap / 2, w: 62, h: height - (mid + gap / 2) },
+    // the castle floats: it is only as tall as its picture, so a low gap opens beneath it
+    { kind: 'tower', x: x + 4, y: mid + gap / 2, w: 64, h: Math.min(height - (mid + gap / 2), (64 / CASTLE.body) * CASTLE.aspect * CASTLE.depth) },
   ];
   if (rand() < 0.6) out.push({ kind: 'ring', x: x + 22, y: mid - 32, w: 26, h: 64 });
   return out;

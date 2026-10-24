@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { speedAt, touches, wave, type Thing } from '../lib/race.ts';
+import { CASTLE, speedAt, touches, wave, type Thing } from '../lib/race.ts';
 import * as sfx from '../lib/sfx.ts';
+import castleArt from '../assets/castle.webp';
 import crash from '../assets/rider-crash.webp';
 import down from '../assets/rider-down.webp';
 import level from '../assets/rider-hero.webp';
@@ -14,6 +15,9 @@ const R = 15; // the rider's reach for bumping into things
 const RW = 130; // the rider picture's box; the body sits at 60% across, 54% down
 const RH = 88;
 const SAFE_S = 1.3; // after a bump, a moment you can't be hurt
+
+const castle = new Image();
+castle.src = castleArt; // loaded with the game, long before the first castle flies in
 
 const loadBest = () => {
   try {
@@ -35,31 +39,14 @@ function draw(ctx: CanvasRenderingContext2D, things: Thing[], streaks: number[][
   }
   for (const t of things) {
     if (t.kind === 'tower') {
-      // a stone tower with a pointed roof and a lit window
-      const roof = Math.min(34, t.h * 0.3);
-      ctx.fillStyle = '#6b4a2e';
-      ctx.strokeStyle = '#2b1a0e';
-      ctx.lineWidth = 2;
-      ctx.fillRect(t.x, t.y + roof, t.w, t.h - roof);
-      ctx.strokeRect(t.x, t.y + roof, t.w, t.h - roof);
-      ctx.strokeStyle = 'rgba(43, 26, 14, 0.35)';
-      for (let y = t.y + roof + 16; y < t.y + t.h; y += 16) {
-        ctx.beginPath();
-        ctx.moveTo(t.x, y);
-        ctx.lineTo(t.x + t.w, y);
-        ctx.stroke();
+      // the floating castle; its bumpable box is the middle of the picture, flags and spires reach past it
+      const w = t.w / CASTLE.body;
+      const h = w * CASTLE.aspect;
+      if (castle.complete) ctx.drawImage(castle, t.x + t.w / 2 - w / 2, t.y - h * 0.04, w, h);
+      else {
+        ctx.fillStyle = '#5b4a3a';
+        ctx.fillRect(t.x, t.y, t.w, t.h);
       }
-      ctx.fillStyle = '#7a1d15';
-      ctx.strokeStyle = '#2b1a0e';
-      ctx.beginPath();
-      ctx.moveTo(t.x - 6, t.y + roof);
-      ctx.lineTo(t.x + t.w / 2, t.y);
-      ctx.lineTo(t.x + t.w + 6, t.y + roof);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = '#f6d36b';
-      ctx.fillRect(t.x + t.w / 2 - 5, t.y + roof + 14, 10, 14);
     } else if (t.kind === 'storm') {
       // a dark cloud hanging down, now and then lit by lightning
       ctx.fillStyle = '#4a3d33';
