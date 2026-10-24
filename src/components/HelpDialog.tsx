@@ -22,6 +22,7 @@ export function HelpDialog({ ref }: { ref: Ref<HTMLDialogElement> }) {
           <li><b>The open field</b> — a public square in the group panel. Only people who step in see each other, nearby (about 10 km), with places rounded to about 100 m. You leave it by yourself after an hour.</li>
           <li><b>Wand</b> — the wand button lets you draw a spell on the map: a circle for candlelight, a zigzag for the cloak, a flick upwards to find yourself.</li>
           <li><b>The golden bird</b> — the sparkle button starts a one-minute game: tap the darting golden bird as many times as you can. It gets quicker with every catch.</li>
+          <li><b>Broom race</b> — the wind button: fly a broom over your own map. Drag up and down to steer, fly through gold rings, and dodge storms, towers and crows. Three bumps and you are down; it gets faster as you go.</li>
           <li><b>Weather</b> — real rain, snow, fog and storms where the map is looking (from Open-Meteo).</li>
           <li><b>Secret words</b> — lock the map on the opening page; it opens only with your words. Install it from your browser's menu (“Add to Home screen”) to use it like an app.</li>
         </ul>
