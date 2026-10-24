@@ -100,15 +100,15 @@ function draw(ctx: CanvasRenderingContext2D, things: Thing[], streaks: number[][
       ctx.quadraticCurveTo(cx + 4, cy - 10, cx + 14, cy - 4 - flap);
       ctx.stroke();
     } else if (!t.done) {
-      // a gold ring to fly through
-      ctx.strokeStyle = '#e9b730';
-      ctx.shadowColor = 'rgba(255, 210, 90, 0.9)';
-      ctx.shadowBlur = 12;
-      ctx.lineWidth = 5;
+      // a gold ring to fly through, with a soft glow (a wide faint stroke: blur is slow on phones)
       ctx.beginPath();
       ctx.ellipse(t.x + t.w / 2, t.y + t.h / 2, t.w / 2, t.h / 2, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 210, 90, 0.35)';
+      ctx.lineWidth = 12;
       ctx.stroke();
-      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#e9b730';
+      ctx.lineWidth = 5;
+      ctx.stroke();
     }
   }
 }
@@ -117,7 +117,7 @@ function draw(ctx: CanvasRenderingContext2D, things: Thing[], streaks: number[][
  * A broom race over your own map: drag up and down to steer, fly through gold rings,
  * dodge storms, towers and crows. Three bumps and the race is over; it speeds up as you go.
  */
-export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx: number) => void }) {
+export function BroomRace({ onClose }: { onClose: () => void }) {
   const field = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const rider = useRef<HTMLImageElement>(null);
@@ -128,8 +128,6 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
   const [metres, setMetres] = useState(0);
   const [best, setBest] = useState(loadBest);
   const bestBefore = useRef(best);
-  const fly = useRef(onFly);
-  fly.current = onFly;
   const score = metres + rings * 10;
 
   useEffect(() => {
@@ -137,7 +135,7 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
     const f = field.current!;
     const c = canvas.current!;
     const ctx = c.getContext('2d')!;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(1.5, window.devicePixelRatio || 1); // plain shapes: sharper buys nothing, costs frames
     const W = f.clientWidth;
     const H = f.clientHeight;
     c.width = W * dpr;
@@ -157,6 +155,7 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
     let hurt = 0;
     let lifeLeft = LIVES;
     let ringsHit = 0;
+    let shown = 0; // when the distance on screen was last updated
     let raf = 0;
     let last = performance.now();
     const frame = (now: number) => {
@@ -166,7 +165,6 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
       hurt = Math.max(0, hurt - dt);
       const v = speedAt(time);
       dist += v * dt;
-      fly.current?.(v * dt * 0.35); // the map below drifts by, slower, being far away
       if (dist >= next) {
         const w = wave(W + 20, H, time);
         things.push(...w);
@@ -216,7 +214,10 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
           }
         }
       }
-      setMetres((m) => (Math.floor(dist / 10) !== m ? Math.floor(dist / 10) : m));
+      if (time - shown > 0.25) {
+        shown = time;
+        setMetres(Math.floor(dist / 10));
+      }
       ctx.clearRect(0, 0, W, H);
       draw(ctx, things, streaks, time);
       raf = requestAnimationFrame(frame);

@@ -201,7 +201,8 @@ export default function App() {
     for (const id of LABEL_LAYERS) map.setLayoutProperty(id, 'visibility', labels ? 'visible' : 'none');
   }, [map, labels]);
 
-  useEffect(() => fp.current?.setWanderers(wanderers), [map, wanderers]);
+  // during a game the wanderers rest, so the map isn't redrawn under it every frame
+  useEffect(() => fp.current?.setWanderers(wanderers && !game), [map, wanderers, game]);
 
   // Opening the map, the place names are inked in one kind after another.
   useEffect(() => {
@@ -652,8 +653,8 @@ export default function App() {
         <div className="sheet-shadow" aria-hidden />
         <div className="sheet">
           <div ref={container} className="map" />
-          {weather && <WeatherLayer sky={sky} />}
-          {night && map && <CandleLight map={map} lights={lights} />}
+          {weather && !game && <WeatherLayer sky={sky} />}
+          {night && map && !game && <CandleLight map={map} lights={lights} />}
           {folding && (
             <div className="fold-doors" aria-hidden>
               <div className="door left" />
@@ -714,7 +715,7 @@ export default function App() {
 
         {wand && <Wand onSpell={castSpell} onDone={() => setWand(false)} />}
         {game === 'bird' && <GoldenBird onClose={() => setGame(null)} />}
-        {game === 'race' && <BroomRace onClose={() => setGame(null)} onFly={(dx) => map?.panBy([dx, 0], { duration: 0 })} />}
+        {game === 'race' && <BroomRace onClose={() => setGame(null)} />}
 
         <button ref={compass} className="compass" onClick={() => map?.resetNorth()} aria-label="Turn the map back to north" title="North">
           <svg viewBox="-50 -50 100 100" aria-hidden>
