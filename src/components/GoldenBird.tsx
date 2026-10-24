@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import orbArt from '../assets/orb.webp';
+import wizard from '../assets/rider-hero.webp';
 import * as sfx from '../lib/sfx.ts';
 import { Quip } from './InkLetter.tsx';
 
 const ROUND_S = 60;
 const BEST_KEY = 'atlas-bird-best';
-const SIZE = 48;
+const SIZE = 56;
 
 const loadBest = () => {
   try {
@@ -15,7 +17,7 @@ const loadBest = () => {
 };
 
 const CHEERS = ['Caught!', 'Swift!', 'Got it!', 'Nice grab!', 'Ha!', 'Brilliant!', 'Quick hands!', 'Gotcha!'];
-const MILESTONES: Record<number, string> = { 5: 'Five! It is getting nervous', 10: 'Ten! The bird is sulking', 15: 'Fifteen! Seeker of the year', 20: 'Twenty! Legendary', 30: 'Thirty?! Unbelievable' };
+const MILESTONES: Record<number, string> = { 5: 'Five! It is getting nervous', 10: 'Ten! The orb is sulking', 15: 'Fifteen! Seeker of the year', 20: 'Twenty! Legendary', 30: 'Thirty?! Unbelievable' };
 const GOLDS = ['#f6d36b', '#e9b730', '#fff1b8', '#c99a2e', '#7a1d15'];
 
 /** Little bursts of things flying out of a point: feathers on a catch, confetti for a record. */
@@ -37,32 +39,14 @@ export function scatter(parent: HTMLElement, x: number, y: number, n: number, cl
   }
 }
 
-// The seeker on a broom who chases the bird: a cloaked flyer of our own, reaching out with one hand.
-// The outstretched hand (66, 25 in the 80×50 box) sits exactly under the pointer.
-const RIDER = `<svg viewBox="0 0 80 50" aria-hidden="true">
-  <path class="r-bristles" d="M14 33 C8 28 2 27 0 29 C3 31 3 34 0 37 C3 38 9 38 14 36Z"/>
-  <path class="r-broom" d="M12 34.5 L74 29"/>
-  <path class="r-cloak" d="M30 33 C26 24 32 14 42 12 C49 11 52 17 50 24 L46 33Z"/>
-  <path class="r-scarf" d="M44 15 C36 12 30 15 22 11 C26 16 32 18 40 19Z"/>
-  <circle class="r-head" cx="48" cy="10" r="5.5"/>
-  <path class="r-hair" d="M43 8 C44 3 51 2 54 6 C51 5 47 6 43 9Z"/>
-  <path class="r-arm" d="M47 19 C54 20 60 23 65 25"/>
-  <circle class="r-hand" cx="66" cy="25" r="2.4"/>
-  <path class="r-leg" d="M40 31 C44 36 50 37 54 36"/>
-</svg>`;
-const RIDER_W = 104;
-const RIDER_H = 65;
-const HAND: [number, number] = [(66 * RIDER_W) / 80, (25 * RIDER_H) / 50];
-
-const BIRD = `<svg viewBox="-30 -20 60 40" aria-hidden="true">
-  <path class="gb-wing left" d="M-6 -2 C-16 -16 -28 -14 -29 -6 C-22 -6 -15 -2 -9 4Z"/>
-  <path class="gb-wing right" d="M6 -2 C16 -16 28 -14 29 -6 C22 -6 15 -2 9 4Z"/>
-  <circle class="gb-body" r="9"/>
-  <path class="gb-shine" d="M-4 -5 a6 6 0 0 1 7 -1"/>
-</svg>`;
+// The wizard on a broom who chases the orb: the front hand on the broom handle (82% across,
+// 67% down the picture) sits exactly under the pointer.
+const RIDER_W = 120;
+const RIDER_H = 78;
+const HAND: [number, number] = [RIDER_W * 0.82, RIDER_H * 0.67];
 
 /**
- * A one-minute game: a golden bird darts about the parchment. Tap it to catch it;
+ * A one-minute game: a golden orb darts about the sky. Tap it to catch it;
  * every catch makes it quicker. The best score stays on this phone.
  */
 export function GoldenBird({ onClose }: { onClose: () => void }) {
@@ -76,7 +60,7 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
   const bestBefore = useRef(best); // to tell a new best from a tie
   const [record, setRecord] = useState(false); // shown the moment the old best falls
   const escape = useRef(0); // seconds of panicked flight after a catch
-  const rider = useRef<HTMLDivElement>(null);
+  const rider = useRef<HTMLImageElement>(null);
   const flight = useRef({ x: 0, y: 0, left: false });
 
   /** The rider follows the pointer, facing the way it moves and tilting into climbs and dives. */
@@ -225,7 +209,7 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
         steer(e);
       }}
     >
-      <div className="gb-rider" ref={rider} style={{ width: RIDER_W, height: RIDER_H }} dangerouslySetInnerHTML={{ __html: RIDER }} />
+      <img className="gb-rider" ref={rider} src={wizard} alt="" width={RIDER_W} height={RIDER_H} />
       <p className="gb-score" aria-live="polite">
         Caught {score} · {left}s left{best ? ` · best ${Math.max(best, over ? 0 : score)}` : ''}
       </p>
@@ -234,15 +218,17 @@ export function GoldenBird({ onClose }: { onClose: () => void }) {
           ★ New record! ★
         </p>
       )}
-      <button ref={bird} className="gb-bird" onPointerDown={catchIt} aria-label="The golden bird: tap to catch it" disabled={over} dangerouslySetInnerHTML={{ __html: BIRD }} />
+      <button ref={bird} className="gb-bird" onPointerDown={catchIt} aria-label="The golden orb: tap to catch it" disabled={over}>
+        <img src={orbArt} alt="" />
+      </button>
       {over ? (
         <div className="letter gb-end note-emerge" role="dialog" aria-label="Time is up">
           {score > bestBefore.current ? <p className="gb-crown" aria-hidden>👑</p> : null}
           <h2>{score > bestBefore.current ? 'A new best!' : 'Time is up'}</h2>
           <p className="letter-text">
-            You caught the golden bird {score} {score === 1 ? 'time' : 'times'}.{score <= bestBefore.current && bestBefore.current ? ` Your best is ${bestBefore.current}.` : ''}
+            You caught the golden orb {score} {score === 1 ? 'time' : 'times'}.{score <= bestBefore.current && bestBefore.current ? ` Your best is ${bestBefore.current}.` : ''}
           </p>
-          {score > bestBefore.current && <Quip>{bestBefore.current ? `${score - bestBefore.current} more than ever before. The bird is quite annoyed.` : 'Your first record. The bird will remember you.'}</Quip>}
+          {score > bestBefore.current && <Quip>{bestBefore.current ? `${score - bestBefore.current} more than ever before. The orb is quite annoyed.` : 'Your first record. The orb will remember you.'}</Quip>}
           <div className="req-actions">
             <button className="btn primary" onClick={again}>
               Play again

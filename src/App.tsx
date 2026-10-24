@@ -706,7 +706,7 @@ export default function App() {
             <button className="ctl toggle" aria-pressed={wand} onClick={() => setWand((v) => !v)} aria-label="Wand: draw a spell" title="Wand: draw a spell">
               <WandSparkles aria-hidden />
             </button>
-            <button className="ctl toggle" aria-pressed={game === 'bird'} onClick={() => setGame((g) => (g === 'bird' ? null : 'bird'))} aria-label="Catch the golden bird (game)" title="Catch the golden bird">
+            <button className="ctl toggle" aria-pressed={game === 'bird'} onClick={() => setGame((g) => (g === 'bird' ? null : 'bird'))} aria-label="Catch the golden orb (game)" title="Catch the golden orb">
               <Sparkles aria-hidden />
             </button>
             <button className="ctl toggle" aria-pressed={game === 'race'} onClick={() => setGame((g) => (g === 'race' ? null : 'race'))} aria-label="Broom race (game)" title="Broom race">
@@ -717,7 +717,7 @@ export default function App() {
 
         {wand && <Wand onSpell={castSpell} onDone={() => setWand(false)} />}
         <Suspense fallback={null}>
-          {game === 'bird' && <GoldenBird onClose={() => setGame(null)} />}
+          {game === 'bird' && createPortal(<GoldenBird onClose={() => setGame(null)} />, document.body)}
           {game === 'race' && createPortal(<BroomRace onClose={() => setGame(null)} />, document.body)}
         </Suspense>
 
