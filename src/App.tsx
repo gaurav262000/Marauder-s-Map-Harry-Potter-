@@ -1,4 +1,4 @@
-import { CircleQuestionMark, CloudRain, FoldVertical, KeyRound, Sparkles, Footprints as FootIcon, LocateFixed, Minus, Moon, Plus, Route as RouteIcon, Tag, Music, Users, WandSparkles, X } from 'lucide-react';
+import { CircleQuestionMark, CloudRain, FoldVertical, Sparkles, Footprints as FootIcon, LocateFixed, Minus, Moon, Plus, Route as RouteIcon, Tag, Music, Users, WandSparkles, X } from 'lucide-react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibre } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -7,7 +7,6 @@ import { CandleLight } from './components/CandleLight.tsx';
 import { GroupPanel } from './components/GroupPanel.tsx';
 import { HelpDialog } from './components/HelpDialog.tsx';
 import { GoldenBird } from './components/GoldenBird.tsx';
-import { HiddenKey } from './components/HiddenKey.tsx';
 import { InkLetter } from './components/InkLetter.tsx';
 import { Intro } from './components/Intro.tsx';
 import { formatCoord, PlaceNote } from './components/PlaceNote.tsx';
@@ -119,7 +118,7 @@ export default function App() {
   const [fieldUntil, setFieldUntil] = useState(() => Math.max(0, Number(load('atlas-field')) || 0));
   const [lock, setLock] = useState(storedLock);
   const [wand, setWand] = useState(false);
-  const [game, setGame] = useState<'bird' | 'key' | null>(null);
+  const [game, setGame] = useState(false);
   // music plays unless it was turned off with the music button last time
   const music = load('atlas-music') !== '0';
   const [weather, setWeather] = useState(true);
@@ -703,18 +702,14 @@ export default function App() {
             <button className="ctl toggle" aria-pressed={wand} onClick={() => setWand((v) => !v)} aria-label="Wand: draw a spell" title="Wand: draw a spell">
               <WandSparkles aria-hidden />
             </button>
-            <button className="ctl toggle" aria-pressed={game === 'bird'} onClick={() => setGame((g) => (g === 'bird' ? null : 'bird'))} aria-label="Catch the golden bird (game)" title="Catch the golden bird">
+            <button className="ctl toggle" aria-pressed={game} onClick={() => setGame((v) => !v)} aria-label="Catch the golden bird (game)" title="Catch the golden bird">
               <Sparkles aria-hidden />
-            </button>
-            <button className="ctl toggle" aria-pressed={game === 'key'} onClick={() => setGame((g) => (g === 'key' ? null : 'key'))} aria-label="Find the hidden key (game)" title="Find the hidden key">
-              <KeyRound aria-hidden />
             </button>
           </div>
         </div>
 
         {wand && <Wand onSpell={castSpell} onDone={() => setWand(false)} />}
-        {game === 'bird' && <GoldenBird onClose={() => setGame(null)} />}
-        {game === 'key' && <HiddenKey onClose={() => setGame(null)} />}
+        {game && <GoldenBird onClose={() => setGame(false)} />}
 
         <button ref={compass} className="compass" onClick={() => map?.resetNorth()} aria-label="Turn the map back to north" title="North">
           <svg viewBox="-50 -50 100 100" aria-hidden>

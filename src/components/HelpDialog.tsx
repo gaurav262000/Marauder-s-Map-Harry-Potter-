@@ -22,7 +22,6 @@ export function HelpDialog({ ref }: { ref: Ref<HTMLDialogElement> }) {
           <li><b>The open field</b> — a public square in the group panel. Only people who step in see each other, nearby (about 10 km), with places rounded to about 100 m. You leave it by yourself after an hour.</li>
           <li><b>Wand</b> — the wand button lets you draw a spell on the map: a circle for candlelight, a zigzag for the cloak, a flick upwards to find yourself.</li>
           <li><b>The golden bird</b> — the sparkle button starts a one-minute game: tap the darting golden bird as many times as you can. It gets quicker with every catch.</li>
-          <li><b>The hidden key</b> — the key button hides a key somewhere on the parchment. Tap to dig: each dig says how warm you are, and whether you are getting warmer or colder. Six digs a key; every key found makes the next one harder.</li>
           <li><b>Weather</b> — real rain, snow, fog and storms where the map is looking (from Open-Meteo).</li>
           <li><b>Secret words</b> — lock the map on the opening page; it opens only with your words. Install it from your browser's menu (“Add to Home screen”) to use it like an app.</li>
         </ul>

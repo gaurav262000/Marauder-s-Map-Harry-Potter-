@@ -19,7 +19,7 @@ const MILESTONES: Record<number, string> = { 5: 'Five! It is getting nervous', 1
 const GOLDS = ['#f6d36b', '#e9b730', '#fff1b8', '#c99a2e', '#7a1d15'];
 
 /** Little bursts of things flying out of a point: feathers on a catch, confetti for a record. */
-export function scatter(parent: HTMLElement, x: number, y: number, n: number, className: string, reach: number) {
+function scatter(parent: HTMLElement, x: number, y: number, n: number, className: string, reach: number) {
   for (let i = 0; i < n; i++) {
     const s = document.createElement('span');
     const a = (i / n) * 2 * Math.PI + Math.random() * 0.6;
