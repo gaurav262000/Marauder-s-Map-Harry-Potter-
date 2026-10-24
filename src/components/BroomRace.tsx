@@ -238,10 +238,21 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
     if (f) scatter(f, f.clientWidth / 2, f.clientHeight * 0.4, 40, 'gb-confetti', Math.min(f.clientWidth, 420) * 0.6);
   }, [state, score, best]);
 
-  const steer = (e: PointerEvent) => {
-    const r = field.current!.getBoundingClientRect();
-    aim.current = e.clientY - r.top;
+  const steer = (clientY: number) => {
+    aim.current = clientY - field.current!.getBoundingClientRect().top;
   };
+
+  // Phones: follow the finger as it drags. Some mobile browsers hand a dragging finger to
+  // scrolling and stop sending pointer moves, so touches are read directly and kept from scrolling.
+  useEffect(() => {
+    const f = field.current!;
+    const drag = (e: TouchEvent) => {
+      e.preventDefault();
+      steer(e.touches[0].clientY);
+    };
+    f.addEventListener('touchmove', drag, { passive: false });
+    return () => f.removeEventListener('touchmove', drag);
+  }, []);
   const start = () => {
     bestBefore.current = best;
     setLives(LIVES);
@@ -256,10 +267,12 @@ export function BroomRace({ onClose, onFly }: { onClose: () => void; onFly?: (dx
     <div
       className="race-layer"
       ref={field}
-      onPointerMove={steer}
-      onPointerDown={(e) => {
+      onPointerMove={(e) => steer(e.clientY)}
+      onPointerDown={(e: PointerEvent) => {
         e.stopPropagation();
-        steer(e);
+        // keep the moves coming even when the finger slides over the map's buttons
+        if (state === 'flying') e.currentTarget.setPointerCapture?.(e.pointerId);
+        steer(e.clientY);
         if (state === 'ready') start();
       }}
     >
